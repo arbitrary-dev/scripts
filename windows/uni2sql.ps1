@@ -17,7 +17,7 @@ if (!$args) {
 
 	$out | Out-File $tmp_file -encoding utf8
 
-	"Done! Check and edit file $tmp_file."
+	"Done! Check and edit: $tmp_file"
 } else {
 	rm $out_file -ea ig
 
