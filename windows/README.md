@@ -3,7 +3,7 @@ README
 
 ### uni2sql.ps1
 
-Converts unicode characters to some useful SQL.
+Convert unicode characters to some useful SQL.
     
     // Run with PowerShell_ISE.exe for unicode support.
     uni2sql.ps1
