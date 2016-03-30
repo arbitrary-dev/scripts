@@ -1,4 +1,4 @@
-README
+linux-scripts
 ======
 
 ### bkrn.sh
@@ -23,3 +23,9 @@ Utility for convenient media convertion.
 	cnv.sh videos
 	cnv.sh player
 	cnv.sh webm
+
+### dominant-color.sh
+
+Returns dominant color of supplied image.
+
+	dominant-color.sh image.jpg

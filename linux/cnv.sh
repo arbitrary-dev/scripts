@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export ERR=errors.log
+
 ao() {
 	if [ "$1" == "" ] || [ "$2" == "" ]; then
 		echo "Converts audio-stream only (aac, 2ch, 44.1 kHz, vbr 3)."
@@ -91,28 +93,34 @@ videos() {
 		LIST="$LIST$1"
 		shift
 	done
+
+	touch $ERR
 	export -f videos_1
 	echo -e "$LIST" | parallel --will-cite videos_1
 	echo
-	if [ -z "$ELIST" ]; then
-		echo "Videos converted successfully."
+
+	if [ -s $ERR ]; then
+		echo "Not all videos were converted:"
+		cat $ERR
 	else
-		echo "Not all videos were converted:$ELIST"
+		echo "Videos converted successfully."
 	fi
+		
+	rm $ERR
 }
 
 videos_1() {
-	BR_V=$(ffprobe -print_format csv=p=0 -v quiet -show_entries stream=bit_rate -select_streams v \"$1\")
+	BR_V=$(ffprobe -print_format csv=p=0 -v quiet -show_entries stream=bit_rate -select_streams v "$1")
 	if (( "$?" != 0 )); then
 		echo -n "e"
-		ELIST="$ELIST\n$1"
+		echo "BR_V $1" >> "$ERR"
 		shift
 		return
 	fi
-	A=$(ffprobe -print_format csv=p=0 -v quiet -show_entries stream=channels,bit_rate -select_streams a \"$1\")
+	A=$(ffprobe -print_format csv=p=0 -v quiet -show_entries stream=channels,bit_rate -select_streams a "$1")
 	if (( "$?" != 0 )); then
 		echo -n "e"
-		ELIST="$ELIST\n$1"
+		echo "A $1" >> "$ERR"
 		shift
 		return
 	fi
@@ -123,15 +131,37 @@ videos_1() {
 		A="-c:a libfdk_aac -ar 44100 -vbr 3"
 	fi
 	( [[ -z "$BR_V" ]] || [[ "$BR_V" -gt 1400000 ]] ) && BR_V=1400000
-	ffmpeg -v quiet -i \"$1\" -c:v mpeg4 -b:v $BR_V -vf "scale=640:trunc(ow/a/2)*2" \
--flags +aic+mv4 $A \"_${1%.*}.mp4\"
+	ffmpeg -v quiet -i "$1" -c:v mpeg4 -b:v $BR_V -vf "scale=640:trunc(ow/a/2)*2" \
+-flags +aic+mv4 $A "_${1%.*}.mp4"
 	if (( "$?" == 0 )); then
-		rm \"$1\"
-		mv \"_${1%.*}.mp4\" \"${1%.*}.mp4\"
+		rm "$1"
+		mv "_${1%.*}.mp4" "${1%.*}.mp4"
 		echo -n "."
 	else
 		echo -n "e"
-		ELIST="$ELIST\n$1"
+		echo "CNV $1" >> "$ERR"
+	fi
+}
+
+film() {
+	if [ "$1" == "" ]; then
+		echo "Convert film."
+		echo "Usage: cnv film <file> <width> <bitrate>"
+		exit
+	fi
+
+#,scale=${2}:-1 \
+	ARGS="-ss 06:48 -i $1 -t 30 -c:v libx264 \
+-vf crop=1280:800:250:200,hqdn3d=4.0:3.0:6.0:4.5,eq=gamma=1.2:contrast=2.0:brightness=0.8 \
+-preset:v fast -b:v $3 \
+-c:a libfdk_aac -ar 44100 -vbr 3 \
+-x264opts threads=9"
+#	ffmpeg -y $ARGS -pass 1 -f matroska /dev/null && \
+#ffmpeg $ARGS -pass 2 ${1%.*}.mkv
+	ffmpeg -y $ARGS ${1%.*}.mkv
+
+	if (( "$?" == 0 )); then
+		echo "Video converted!"
 	fi
 }
 
@@ -142,10 +172,10 @@ webm() {
 		exit
 	fi
 
-	ARGS="-ss $4 -i $1 -t $5 -threads 8 -c:v libvpx -vf scale=${2}:-1 \
--minrate 80k -maxrate 0 -b:v $3 \
--c:a libvorbis -b:a 96k -ac 1 -ar 44100"
-	ffmpeg -y $ARGS -pass 1 -f webm /dev/null && \
+	ARGS="-y -ss $4 -i $1 -t $5 -threads 8 \
+-c:v libvpx -vf scale=${2}:-1 -r 24 -b:v $3 -crf 4 \
+-c:a libvorbis -qscale:a 2 -ac 1 -ar 44100"
+	ffmpeg $ARGS -pass 1 -f webm /dev/null && \
 ffmpeg $ARGS -pass 2 ${1%.*}.webm
 
 	if (( "$?" == 0 )); then
