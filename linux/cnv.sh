@@ -78,6 +78,75 @@ photos_1() {
 	echo -n "."
 }
 
+covers() {
+	if [ "$1" == "" ]; then
+		echo "Convert covers from list (jpeg, 900x900 or 600 for wide ones)."
+		echo "Usage: cnv covers [-f] <list>"
+		echo "-f creates 500x500 folder.jpg from cover."
+		exit
+	fi
+	while [[ $# > 0 ]]; do
+		if [ "$1" == "-f" ]; then
+			F="-f "
+		elif [[ $(mimetype -b "$1") == image* ]]; then
+			[[ ! -z "$LIST" ]] && LIST="$LIST\n"
+			LIST="$LIST$F$1"
+		fi
+		shift
+	done
+	export -f covers_1
+	echo -e "$LIST" | parallel --will-cite --colsep=" " covers_1
+	echo
+	echo "Covers were successfully converted."
+}
+
+covers_1() {
+	Q=80
+
+	if [ "$1" == "-f" ]; then
+		F=1
+		shift
+	fi
+
+	DIM=($(identify -format "%W %H" "$1" 2>/dev/null))
+	if (( "$?" != 0 )); then
+		echo -n e
+		return
+	fi
+	[[ -z "${DIM[0]}" ]] && W=0 || W=${DIM[0]}
+	[[ -z "${DIM[1]}" ]] && H=0 || H=${DIM[1]}
+	
+	SIZE=$(stat -c %s "$1")
+	if (( "$?" != 0 )); then
+		echo -n e
+		return
+	fi
+
+	if [[ $F -eq 1 && ${1%.*} == cover ]]; then
+		if (( "$W" <= 600 && "$H" <= 600 )); then
+			cp "$1" folder.jpg
+		else
+			convert "$1" -filter Lanczos -resize 600x600 -quality $Q folder.jpg
+		fi
+	fi
+
+	if (( "$SIZE" <= 163840 || ("$W" <= 900 && "$H" <= 900) )); then
+		echo -n "_"
+		return
+	fi
+
+	R=900x900
+	if (( $(bc -l <<< "$W/$H > 1.4") )); then
+		R=x600
+	elif (( $(bc -l <<< "$H/$W > 1.4") )); then
+		R=600
+	fi
+
+	convert "$1" -filter Lanczos -resize $R -quality $Q "${1%.*}.jpg"
+
+	echo -n "."
+}
+
 videos() {
 	if [ "$1" == "" ]; then
 		echo "Converts videos from list (mp4, 640x480, 1400 kbps)."
@@ -166,17 +235,49 @@ film() {
 }
 
 webm() {
-	if [ "$1" == "" ]; then
+	R=24
+	AC=1
+
+	while [[ $# > 1 ]]; do
+	case "$1" in
+	-f)	FROM="-ss $2"
+		shift ;;
+	-d)	DUR="-t $2"
+		shift ;;
+	-b)	BV="-b:v $2"
+		shift ;;
+	-vf)
+		if [ -n "$VF" ]; then VF+=","; fi
+		VF+=$2
+		shift ;;
+	-w)	if [ -n "$VF" ]; then VF+=","; fi
+		VF+="scale=${2}:-1"
+		shift ;;
+	-r)	R=$2
+		shift ;;
+	--stereo)
+		AC=2	
+		shift ;;
+	*)	echo "Unknown argument '$1'!"
+		exit ;;
+	esac
+	shift
+	done
+
+	if [[ $# == 0 ]]; then
 		echo "Convert video to webm."
-		echo "Usage: cnv webm <file> <width> <bitrate> <from> <duration>"
+		echo "Usage: cnv webm [-w width] [-b bitrate] [-r frame-rate] \
+[-f from] [-d duration] [--stereo] [-vf video-filters] <file>"
 		exit
 	fi
 
-	ARGS="-y -ss $4 -i $1 -t $5 -threads 8 \
--c:v libvpx -vf scale=${2}:-1 -r 24 -b:v $3 -crf 4 \
--c:a libvorbis -qscale:a 2 -ac 1 -ar 44100"
-	ffmpeg $ARGS -pass 1 -f webm /dev/null && \
-ffmpeg $ARGS -pass 2 ${1%.*}.webm
+	if [ -n "$VF" ]; then VF="-vf $VF"; fi
+
+	ARGS="-y $FROM -i $1 $DUR -threads 8 \
+-c:v libvpx $VF -r $R $BV -crf 4 \
+-c:a libvorbis -qscale:a 2 -ac $AC -ar 44100"
+	$(ffmpeg $ARGS -pass 1 -f webm /dev/null && \
+ffmpeg $ARGS -pass 2 ${1%.*}.webm)
 
 	if (( "$?" == 0 )); then
 		echo "Video converted!"
