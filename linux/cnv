@@ -1,141 +1,162 @@
 #!/bin/bash
 
-export ERR=errors.log
+ERR=${0##*/}-err.log
+export ffmpeg="ffmpeg -hide_banner"
+
+_log() {
+  printf "$*\n"
+}
+
+_usage() {
+  local func=${FUNCNAME[1]}
+  [[ $func = main ]] && func= || func=" $func"
+  printf "Usage: ${0##*/}$func"
+}
+
+ylwf="\e[33m"
+redf="\e[31m"
+redb="\e[44m"
+rst="\e[0m"
+
+_param() {
+  local out="$redb$ylwf $1 $rst"
+  shift
+  (( $# > 1 )) && out+=" $redf$1$rst" && shift
+  out+=" $1"
+
+  _log "$out"
+}
 
 ao() {
-  if [ "$1" == "" ] || [ "$2" == "" ]; then
-    echo "Converts audio-stream only (aac, 2ch, 44.1 kHz, vbr 3)."
-    echo "Usage: cnv ao <input-filename> <output-filename>"
-    exit
+  if [[ $# != 2 ]]; then
+    cat <<EOF
+Converts audio-stream only (aac, 2ch, 44.1 kHz, vbr 3)
+$(_usage) <input-filename> <output-filename>
+EOF
+    return 1
   fi
-  ffmpeg -i "$1" -c:v copy -c:a libfdk_aac -ac 2 -ar 44100 -vbr 3 "$2"
+
+  $ffmpeg -i "$1" -c:v copy -c:a libfdk_aac -ac 2 -ar 44100 -vbr 3 "$2"
 }
 
 player() {
-  if [ "$1" == "" ]; then
-    echo "Convert tracks from list (aac, 2ch, 44.1 kHz, vbr 4)."
-    echo "Usage: cnv player <list>"
-    exit
+  if (( ! $# )); then
+    cat <<EOF
+Convert tracks from list (aac, 2ch, 44.1 kHz, vbr 4)
+$(_usage) <list>
+EOF
+    return 1
   fi
-  until [ -z "$1" ]; do
-    if [[ $(mimetype -b "$1") != audio* ]]; then
-      shift
-      continue
-    fi
-    LIST="$LIST\n$1"
+
+  while (( $# )); do
+    [[ $(mimetype -b "$1") = audio* ]] && LIST+="\n$1"
     shift
   done
+
   export -f player_1
-  echo -e "$LIST" | parallel --will-cite player_1
-  echo
-  echo "Tracks converted."
+  printf "$LIST" | parallel --will-cite player_1
+  _log "\nTracks converted."
 }
 
 player_1() {
-  [[ -z "$1" ]] && return
-  ffmpeg -v quiet -i "$1" -c:a libfdk_aac -ac 2 -ar 44100 -vbr 4 "${1%.*}.m4a"
-  if (( "$?" == 0 )); then
-    if [ "$1" != "${1%.*}.m4a" ]; then
-      rm "$1"
-    fi
-    echo -n "."
+  [[ -z $1 ]] && return
+
+  $ffmpeg -v quiet -i "$1" -c:a libfdk_aac -ac 2 -ar 44100 -vbr 4 "${1%.*}.m4a"
+
+  if [[ $? = 0 ]]; then
+    [[ $1 != ${1%.*}.m4a ]] && rm "$1"
+    printf .
   else
-    echo
-    echo "An error occured converting '$1'!"
+    printf e
   fi
 }
 
 photos() {
-  if [ "$1" == "" ]; then
-    echo "Convert photos from list (jpeg, 1024x768)."
-    echo "Usage: cnv photos <list>"
-    exit
+  if (( ! $# )); then
+    cat <<EOF
+Convert photos from list (jpeg, 1024x768)
+$(_usage) <list>
+EOF
+    return 1
   fi
-  until [ -z "$1" ]; do
-    if [[ $(mimetype -b "$1") != image* ]]; then
-      shift
-      continue
+
+  while (( $# )); do
+    if [[ $(mimetype -b "$1") = image* ]]; then
+      [[ -n $LIST ]] && LIST+=\n
+      LIST+="$1"
     fi
-    [[ ! -z "$LIST" ]] && LIST="$LIST\n"
-    LIST="$LIST$1"
     shift
   done
-  export -f photos_1
-  echo -e "$LIST" | parallel --will-cite photos_1
-  echo
-  echo "Photos were successfully converted."
+
+  export -f _photo
+  printf "$LIST" | parallel --will-cite _photo
+  _log "Photos were successfully converted."
 }
 
-photos_1() {
-  DIM=($(identify -format "%W %H" "$1" 2>/dev/null))
-  [[ -z "${DIM[0]}" ]] && W=0 || W=${DIM[0]}
-  [[ -z "${DIM[1]}" ]] && H=0 || H=${DIM[1]}
-  if (( "$?" != 0 || ("$W" <= 1024 && "$H" <= 1024) )); then
-    echo -n "_"
+_photo() {
+  local DIM=($(identify -format "%W %H" "$1" 2>/dev/null))
+  local W=${DIM[0]:-0}
+  local H=${DIM[1]:-0}
+
+  if [[ $? != 0 || ($W -le 1024 && $H -le 1024) ]]; then
+    printf _
     return
   fi
+
   convert "$1" -filter Lanczos -resize 1024x1024 -quality 80 -auto-level "$1"
-  echo -n "."
+  [[ $? = 0 ]] && printf . || printf e
 }
 
 covers() {
-  if [ "$1" == "" ]; then
-    echo "Convert covers from list (jpeg, 900x900 or 600 for wide ones)."
-    echo "Usage: cnv covers [-f] <list>"
-    echo "-f creates 500x500 folder.jpg from cover."
-    exit
+  if (( ! $# )); then
+    cat <<EOF
+Convert covers from list (jpeg, 900x900 or 600 for wide ones)
+$(_usage) [-f] <list>
+$(_param -f "creates 500x500 folder.jpg from cover")
+EOF
+    return 1
   fi
-  while [[ $# > 0 ]]; do
-    if [ "$1" == "-f" ]; then
-      F="-f "
-    elif [[ $(mimetype -b "$1") == image* ]]; then
-      [[ ! -z "$LIST" ]] && LIST="$LIST\n"
-      LIST="$LIST$F$1"
+
+  [[ $1 = -f ]] && F="-f " && shift
+
+  while (( $# )); do
+    if [[ $(mimetype -b "$1") == image* ]]; then
+      [[ -n $LIST ]] && LIST+="\n"
+      LIST+="$F$1"
     fi
     shift
   done
-  export -f covers_1
-  echo -e "$LIST" | parallel --will-cite --colsep=" " covers_1
-  echo
-  echo "Covers were successfully converted."
+
+  export -f _cover
+  printf -- "$LIST" | parallel --will-cite --colsep=' ' _cover
+  _log "\nCovers were successfully converted."
 }
 
-covers_1() {
+_cover() {
   Q=80
 
-  if [ "$1" == "-f" ]; then
-    F=1
-    shift
-  fi
+  [[ $1 = -f ]] && F=1 && shift
 
-  DIM=($(identify -format "%W %H" "$1" 2>/dev/null))
-  if (( "$?" != 0 )); then
-    echo -n e
-    return
-  fi
-  [[ -z "${DIM[0]}" ]] && W=0 || W=${DIM[0]}
-  [[ -z "${DIM[1]}" ]] && H=0 || H=${DIM[1]}
-  
-  SIZE=$(stat -c %s "$1")
-  if (( "$?" != 0 )); then
-    echo -n e
-    return
-  fi
+  local DIM=($(identify -format "%W %H" "$1" 2>/dev/null))
+  [[ $? != 0 ]] && printf e && return 1
 
-  if [[ $F -eq 1 && ${1%.*} == cover ]]; then
-    if (( "$W" <= 600 && "$H" <= 600 )); then
+  local W=${DIM[0]:-0}
+  local H=${DIM[1]:-0}
+
+  local SIZE=$(stat -c %s "$1")
+  [[ $? != 0 ]] && printf e && return 1
+
+  if [[ $F = 1 && ${1%.*} = cover ]]; then
+    if [[ $W -le 600 && $H -le 600 ]]; then
       cp "$1" folder.jpg
     else
       convert "$1" -filter Lanczos -resize 600x600 -quality $Q folder.jpg
     fi
   fi
 
-  if (( "$SIZE" <= 163840 || ("$W" <= 900 && "$H" <= 900) )); then
-    echo -n "_"
-    return
-  fi
+  [[ $SIZE -le 163840 || ($W -le 900 && $H -le 900) ]] && printf _ && return
 
-  R=900x900
+  local R=900x900
   if (( $(bc -l <<< "$W/$H > 1.4") )); then
     R=x600
   elif (( $(bc -l <<< "$H/$W > 1.4") )); then
@@ -143,149 +164,294 @@ covers_1() {
   fi
 
   convert "$1" -filter Lanczos -resize $R -quality $Q "${1%.*}.jpg"
-
-  echo -n "."
+  [[ $? = 0 ]] && printf . || printf e
 }
 
 videos() {
-  if [ "$1" == "" ]; then
-    echo "Converts videos from list (mp4, 640x480, 1400 kbps)."
-    echo "Usage: cnv videos <list>"
-    exit
+  if (( ! $# )); then
+    cat <<EOF
+Converts videos from list (mp4, 640x480, 1400 kbps)
+$(_usage) <list>
+EOF
+    return 1
   fi
-  until [ -z "$1" ]; do
-    if [[ $(mimetype -b "$1") != video* ]]; then
-      shift
-      continue
+
+  while (( $# )); do
+    if [[ $(mimetype -b "$1") = video* ]]; then
+      [[ -n $LIST ]] && LIST+=\n
+      LIST+="$1"
     fi
-    [[ ! -z "$LIST" ]] && LIST="$LIST\n"
-    LIST="$LIST$1"
     shift
   done
 
-  touch $ERR
-  export -f videos_1
-  echo -e "$LIST" | parallel --will-cite videos_1
-  echo
+  export -f _video
+  printf "$LIST" | parallel --will-cite _video
 
-  if [ -s $ERR ]; then
-    echo "Not all videos were converted:"
+  if [[ -s $ERR ]]; then
+    _log "Not all videos were converted:"
     cat $ERR
   else
-    echo "Videos converted successfully."
+    _log "Videos converted successfully."
   fi
-    
-  rm $ERR
+
+  rm -f $ERR
 }
 
-videos_1() {
-  BR_V=$(ffprobe -print_format csv=p=0 -v quiet -show_entries stream=bit_rate -select_streams v "$1")
-  if (( "$?" != 0 )); then
-    echo -n "e"
-    echo "BR_V $1" >> "$ERR"
+_video() {
+  local BR_V=$(ffprobe -print_format csv=p=0 -v quiet -show_entries stream=bit_rate -select_streams v "$1")
+  if (( $? )); then
+    printf e
+    _log "BR_V $1" >> "$ERR"
     shift
     return
   fi
-  A=$(ffprobe -print_format csv=p=0 -v quiet -show_entries stream=channels,bit_rate -select_streams a "$1")
-  if (( "$?" != 0 )); then
-    echo -n "e"
-    echo "A $1" >> "$ERR"
+
+  local A=$(ffprobe -print_format csv=p=0 -v quiet -show_entries stream=channels,bit_rate -select_streams a "$1")
+  if (( $? )); then
+    printf e
+    _log "A $1" >> "$ERR"
     shift
     return
   fi
+
   A=(${A//,/ })
-  if (( $(bc <<< ${A[1]}/${A[0]}) < 60000 )); then
-    A="-c:a copy"
+  (( $(bc <<< ${A[1]}/${A[0]}) < 60000 )) && A="-c:a copy" \
+                                          || A="-c:a libfdk_aac -ar 44100 -vbr 3"
+
+  (( $BR_V > 1400000 )) && BR_V=1400000
+
+  local ARGS="-v quiet -i ""$1"" -c:v mpeg4 -b:v $BR_V -vf 'scale=640:trunc(ow/a/2)*2' \
+-flags +aic+mv4 $A"
+
+  $ffmpeg $ARGS "_${1%.*}.mp4"
+
+  if (( $? )); then
+    printf e
+    _log "CNV $1" >> "$ERR"
   else
-    A="-c:a libfdk_aac -ar 44100 -vbr 3"
-  fi
-  ( [[ -z "$BR_V" ]] || [[ "$BR_V" -gt 1400000 ]] ) && BR_V=1400000
-  ffmpeg -v quiet -i "$1" -c:v mpeg4 -b:v $BR_V -vf "scale=640:trunc(ow/a/2)*2" \
--flags +aic+mv4 $A "_${1%.*}.mp4"
-  if (( "$?" == 0 )); then
     rm "$1"
     mv "_${1%.*}.mp4" "${1%.*}.mp4"
-    echo -n "."
-  else
-    echo -n "e"
-    echo "CNV $1" >> "$ERR"
+    printf .
   fi
 }
 
 film() {
-  if [ "$1" == "" ]; then
-    echo "Convert film."
-    echo "Usage: cnv film <file> <width> <bitrate>"
-    exit
+  if (( ! $# )); then
+    cat <<EOF
+Convert film
+$(_usage) [options] <input> [output.mkv]
+$(_param "-f|--from" "    00:00:00.000" "Starting time for video encoding")
+$(_param "-d|--duration" "00:00:00.000" "Total duration time for video encoding")
+
+$(_param "-b|--bitrate" "000k" "Video encoding bitrate")
+$(_param "-w|--width" "  000 " "Output video width (preserves aspect ratio)")
+
+$(_param -2 "Perform only 2nd pass encoding")
+$(_param --log "quiet|panic|fatal|error|warning|info|verbose|debug|trace" "")
+
+$(_param "-dn|--denoise" "luma_spatial:chroma_spatial:luma_tmp:chroma_tmp" \
+"\nApply denoise filter.
+Default values:
+luma_spatial   = 4
+chroma_spatial = 3
+luma_tmp       = 6
+chroma_tmp     = 4.5")
+
+$(_param -eq "contrast:brightness:gamma" \
+"\nApply eq flter.
+Default values and possible ranges:
+contrast   = 1 [-2.0 ..  2.0]
+brightness = 0 [-1.0 ..  1.0]
+gamma      = 1 [ 0.1 ..  10 ]")
+
+$(_param "-cr|--crop" "width:height:x:y" \
+"\nApply crop flter.
+x,y - crop start position from top left corner")
+
+$(_param -vf filters "Additional video filters to apply")
+EOF
+    return 1
   fi
 
-#,scale=${2}:-1 \
-  ARGS="-ss 06:48 -i $1 -t 30 -c:v libx264 \
--vf crop=1280:800:250:200,hqdn3d=4.0:3.0:6.0:4.5,eq=gamma=1.2:contrast=2.0:brightness=0.8 \
--preset:v fast -b:v $3 \
--c:a libfdk_aac -ar 44100 -vbr 3 \
--x264opts threads=9"
-#  ffmpeg -y $ARGS -pass 1 -f matroska /dev/null && \
-#ffmpeg $ARGS -pass 2 ${1%.*}.mkv
-  ffmpeg -y $ARGS ${1%.*}.mkv
-
-  if (( "$?" == 0 )); then
-    echo "Video converted!"
-  fi
-}
-
-webm() {
-  R=24
-  AC=1
+  local only_2nd_pass=0
 
   while [[ $# > 1 ]]; do
   case "$1" in
-  -f)  FROM="-ss $2"
+  -f|--from)
+    FROM="-ss $2"
     shift ;;
-  -d)  DUR="-t $2"
+  -d|--duration)
+    DUR="-t $2"
     shift ;;
-  -b)  BV="-b:v $2"
+  -b|--bitrate)
+    BV="-b:v $2"
     shift ;;
   -vf)
-    if [ -n "$VF" ]; then VF+=","; fi
+    [ -n "$VF" ] && VF+=,
     VF+=$2
     shift ;;
-  -w)  if [ -n "$VF" ]; then VF+=","; fi
+  -w|--width)
+    [ -n "$VF" ] && VF+=,
     VF+="scale=${2}:-1"
     shift ;;
-  -r)  R=$2
+  -dn|--denoise)
+    [ -n "$VF" ] && VF+=,
+    if [[ $2 =~ ^[0-9.:]+$ ]]; then
+      IFS=: read -ra dn <<< "$2"
+      shift
+    fi
+    VF+="hqdn3d=${dn[0]-4}:${dn[1]-3}:${dn[2]-6}:${dn[3]-4.5}" ;;
+  -eq)
+    [[ -n $VF ]] && VF+=,
+    local eq
+    IFS=: read -ra eq <<< "$2"
+    VF+=eq=contrast=${eq[0]-1}:brightness=${eq[1]-0}:gamma=${eq[2]-1}
     shift ;;
-  --stereo)
-    AC=2  
+  -2)
+    only_2nd_pass=1 ;;
+  -cr|--crop)
+    [[ -n $VF ]] && VF+=,
+    VF+=crop=$2
     shift ;;
-  *)  echo "Unknown argument '$1'!"
-    exit ;;
+  --log)
+    LOG="-v $2"
+    shift ;;
+  *)
+    (( $# > 2 )) && _log "Unknown argument '$1'!" && return 1
+    [[ $# = 2 && $2 != *.mkv ]] && _log "Wrong output file '$2' must be *.mkv!" && return 1
+    break ;;
   esac
   shift
   done
 
-  if [[ $# == 0 ]]; then
-    echo "Convert video to webm."
-    echo "Usage: cnv webm [-w width] [-b bitrate] [-r frame-rate] \
-[-f from] [-d duration] [--stereo] [-vf video-filters] <file>"
-    exit
-  fi
+  [[ -n $VF ]] && VF="-vf $VF"
 
-  if [ -n "$VF" ]; then VF="-vf $VF"; fi
+  local ARGS="\
+	-y $FROM -i \"$1\" $DUR \
+	-c:v libx264 $BV -preset:v fast -x264opts threads=9 $VF \
+	-c:a libfdk_aac -ar 44100 -vbr 3 \
+  $LOG"
 
-  ARGS="-y $FROM -i $1 $DUR -threads 8 \
--c:v libvpx $VF -r $R $BV -crf 4 \
--c:a libvorbis -qscale:a 2 -ac $AC -ar 44100"
-  $(ffmpeg $ARGS -pass 1 -f webm /dev/null && \
-ffmpeg $ARGS -pass 2 ${1%.*}.webm)
+  local out=${2:-${1%.*}-out.mkv}
+  _log "< $1"
 
-  if (( "$?" == 0 )); then
-    echo "Video converted!"
-  fi
+  (( ! $only_2nd_pass )) && eval $ffmpeg $ARGS -pass 1 -f matroska /dev/null || :
+  (( ! $? ))             && eval $ffmpeg $ARGS -pass 2 "\"$out\""
+
+  (( ! $? )) && _log "> $out"
 }
 
-if [ "$1" == "" ]; then
-  echo "Usage: cnv <ao|photos|videos|player|webm|...>"
+webm() {
+  if (( ! $# )); then
+    cat <<EOF
+Make webm out of video
+$(_usage) [options] <input> [output.webm]
+$(_param "-f|--from" "00:00:00.000" "    Starting time for video encoding")
+$(_param "-d|--duration" "00:00:00.000" "Total duration time for video encoding")
+
+$(_param "-b|--bitrate" "000k" "Video encoding bitrate")
+$(_param "-w|--width" "000" "   Output video width (preserves aspect ratio)")
+
+$(_param -2 "Perform only 2nd pass encoding")
+
+$(_param -eq "contrast:brightness:gamma" "\nApply eq flter
+contrast   = 1 [-2.0 ..  2.0]
+brightness = 0 [-1.0 ..  1.0]
+gamma      = 1 [ 0.1 ..  10 ]")
+$(_param "-cr|--crop" "width:height:x:y" "\nApply crop flter
+x,y - crop start position from top left corner")
+$(_param "-dn|--denoise" "Apply denoise filter")
+$(_param -vf "'filters'" "Additional video filters to apply")
+EOF
+    return 1
+  fi
+
+#    echo "$(_usage) [-w width] [-b bitrate] [-r frame-rate] \
+#[-f from] [-d duration] [--stereo] [-vf video-filters] \
+#[--preview image] <file>"
+
+  local FROM
+  local DUR
+  local BV
+  local R=24
+  local AC=1
+  local codec=libvpx-vp9
+  local pr_i
+  local pr_vf
+  local only_2nd_pass=0
+  local IN
+  local OUT
+
+  while [[ $# > 1 ]]; do
+  case "$1" in
+  -f|--from)
+    FROM="$2"
+    shift ;;
+  -d|--duration)
+    DUR="-t $2"
+    shift ;;
+  -b|--bitrate)
+    BV="-b:v $2"
+    shift ;;
+  -vf)
+    [[ -n $VF ]] && VF+=,
+    VF+=$2
+    shift ;;
+  -w|--width)
+    [[ -n $VF ]] && VF+=,
+    VF+="scale=${2}:-1"
+    shift ;;
+  -r|--rate)
+    R=$2
+    shift ;;
+  --stereo)
+    AC=2 ;;
+  -pr|--preview)
+    pr_i="-i $2"
+    pr_vf="[0:v][1:v]overlay=0:0:enable="
+    shift ;;
+  -2)
+    only_2nd_pass=1 ;;
+  *)
+    (( $# > 2 )) && _log "Unknown argument '$1'!" && return 1
+    [[ $# = 2 && $2 != *.webm ]] && _log "Wrong output file '$2' must be *.webm!" && return 1
+    IN=$1
+    OUT=$2
+    ;;
+  esac
+  shift
+  done
+
+  if [[ -n $VF$pr_vf ]]; then
+    if [[ -n $pr_vf ]]; then
+      pr_vf+="'"
+      [[ -n $FROM ]] && pr_vf+="lte(t,$FROM+0.01)" \
+                     || pr_vf+="lte(n,1)"
+      pr_vf+="'"
+    fi
+    [[ -n $VF && -n $pr_vf ]] && VF=,$VF
+    VF="$pr_vf$VF"
+  fi
+
+  FROM=${FROM:+-ss $FROM}
+  ARGS="-y -i $IN $pr_i \
+        -c:v $codec -r $R $BV -crf 4 \
+        -tile-columns 3 -threads 8 \
+        -speed 0 -g 9999 -frame-parallel 0 -pix_fmt +yuv420p -sn \
+        -c:a libopus -b:a 64k -ac $AC"
+
+# printf "$ffmpeg $ARGS ${VF:+-filter_complex \"$VF\"} -pass 1 -f webm $FROM $DUR /dev/null\n"
+  (( ! $only_2nd_pass )) && $ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 1 -f webm $FROM $DUR /dev/null || :
+  (( ! $? ))             && $ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 2 $FROM $DUR ${OUT:-${IN%.*}-out.webm}
+
+  (( ! $? )) && echo "Video converted!"
+}
+
+if (( ! $# )); then
+  cat <<EOF
+Universal media convertor
+$(_usage) <ao|photos|covers|videos|player|film|webm>
+EOF
 else
   CMD="$1"
   shift
