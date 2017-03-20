@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ERR=${0##*/}-err.log
-export ffmpeg="ffmpeg -hide_banner"
 
 _log() {
   printf "$*\n"
@@ -36,7 +35,7 @@ EOF
     return 1
   fi
 
-  $ffmpeg -i "$1" -c:v copy -c:a libfdk_aac -ac 2 -ar 44100 -vbr 3 "$2"
+  ffmpeg -i "$1" -hide_banner -c:v copy -c:a libfdk_aac -ac 2 -ar 44100 -vbr 3 "$2"
 }
 
 player() {
@@ -61,7 +60,7 @@ EOF
 player_1() {
   [[ -z $1 ]] && return
 
-  $ffmpeg -v quiet -i "$1" -c:a libfdk_aac -ac 2 -ar 44100 -vbr 4 "${1%.*}.m4a"
+  ffmpeg -i "$1" -hide_banner -v quiet -c:a libfdk_aac -ac 2 -ar 44100 -vbr 4 "${1%.*}.m4a"
 
   if [[ $? = 0 ]]; then
     [[ $1 != ${1%.*}.m4a ]] && rm "$1"
@@ -82,7 +81,7 @@ EOF
 
   while (( $# )); do
     if [[ $(mimetype -b "$1") = image* ]]; then
-      [[ -n $LIST ]] && LIST+=\n
+      [[ -n $LIST ]] && LIST+='\n'
       LIST+="$1"
     fi
     shift
@@ -90,7 +89,7 @@ EOF
 
   export -f _photo
   printf "$LIST" | parallel --will-cite _photo
-  _log "Photos were successfully converted."
+  _log "\nPhotos were successfully converted."
 }
 
 _photo() {
@@ -147,10 +146,10 @@ _cover() {
   [[ $? != 0 ]] && printf e && return 1
 
   if [[ $F = 1 && ${1%.*} = cover ]]; then
-    if [[ $W -le 600 && $H -le 600 ]]; then
+    if [[ $W -le 500 && $H -le 500 ]]; then
       cp "$1" folder.jpg
     else
-      convert "$1" -filter Lanczos -resize 600x600 -quality $Q folder.jpg
+      convert "$1" -filter Lanczos -resize 500x500 -quality $Q folder.jpg
     fi
   fi
 
@@ -178,7 +177,7 @@ EOF
 
   while (( $# )); do
     if [[ $(mimetype -b "$1") = video* ]]; then
-      [[ -n $LIST ]] && LIST+=\n
+      [[ -n $LIST ]] && LIST+='\n'
       LIST+="$1"
     fi
     shift
@@ -187,6 +186,7 @@ EOF
   export -f _video
   printf "$LIST" | parallel --will-cite _video
 
+  echo
   if [[ -s $ERR ]]; then
     _log "Not all videos were converted:"
     cat $ERR
@@ -220,10 +220,8 @@ _video() {
 
   (( $BR_V > 1400000 )) && BR_V=1400000
 
-  local ARGS="-v quiet -i ""$1"" -c:v mpeg4 -b:v $BR_V -vf 'scale=640:trunc(ow/a/2)*2' \
--flags +aic+mv4 $A"
-
-  $ffmpeg $ARGS "_${1%.*}.mp4"
+  ffmpeg -i "$1" -hide_banner -y -v quiet -c:v mpeg4 -b:v $BR_V -vf 'scale=640:trunc(ow/a/2)*2' \
+         -flags +aic+mv4 $A "_${1%.*}.mp4"
 
   if (( $? )); then
     printf e
@@ -249,6 +247,7 @@ $(_param "-w|--width" "  000 " "Output video width (preserves aspect ratio)")
 $(_param -2 "Perform only 2nd pass encoding")
 $(_param --log "quiet|panic|fatal|error|warning|info|verbose|debug|trace" "")
 
+$(_param "-di|--deinterlace")
 $(_param "-dn|--denoise" "luma_spatial:chroma_spatial:luma_tmp:chroma_tmp" \
 "\nApply denoise filter.
 Default values:
@@ -301,6 +300,9 @@ EOF
       shift
     fi
     VF+="hqdn3d=${dn[0]-4}:${dn[1]-3}:${dn[2]-6}:${dn[3]-4.5}" ;;
+  -di|--deinterlace)
+    [ -n "$VF" ] && VF+=,
+    VF+=yadif ;;
   -eq)
     [[ -n $VF ]] && VF+=,
     local eq
@@ -327,16 +329,17 @@ EOF
   [[ -n $VF ]] && VF="-vf $VF"
 
   local ARGS="\
-	-y $FROM -i \"$1\" $DUR \
-	-c:v libx264 $BV -preset:v fast -x264opts threads=9 $VF \
-	-c:a libfdk_aac -ar 44100 -vbr 3 \
-  $LOG"
+    $FROM -i \"$1\" $DUR \
+    -y -hide_banner \
+    -c:v libx264 $BV -preset:v fast -x264opts threads=9 $VF \
+    -c:a libfdk_aac -ar 44100 -vbr 3 \
+    $LOG"
 
   local out=${2:-${1%.*}-out.mkv}
   _log "< $1"
 
-  (( ! $only_2nd_pass )) && eval $ffmpeg $ARGS -pass 1 -f matroska /dev/null || :
-  (( ! $? ))             && eval $ffmpeg $ARGS -pass 2 "\"$out\""
+  (( ! $only_2nd_pass )) && eval "ffmpeg $ARGS -pass 1 -f matroska /dev/null" || :
+  (( ! $? ))             && eval "ffmpeg $ARGS -pass 2 \"$out\""
 
   (( ! $? )) && _log "> $out"
 }
@@ -434,15 +437,14 @@ EOF
   fi
 
   FROM=${FROM:+-ss $FROM}
-  ARGS="-y -i $IN $pr_i \
+  ARGS="-y -hide_banner -i $IN $pr_i \
         -c:v $codec -r $R $BV -crf 4 \
         -tile-columns 3 -threads 8 \
         -speed 0 -g 9999 -frame-parallel 0 -pix_fmt +yuv420p -sn \
         -c:a libopus -b:a 64k -ac $AC"
 
-# printf "$ffmpeg $ARGS ${VF:+-filter_complex \"$VF\"} -pass 1 -f webm $FROM $DUR /dev/null\n"
-  (( ! $only_2nd_pass )) && $ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 1 -f webm $FROM $DUR /dev/null || :
-  (( ! $? ))             && $ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 2 $FROM $DUR ${OUT:-${IN%.*}-out.webm}
+  (( ! $only_2nd_pass )) && ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 1 -f webm $FROM $DUR /dev/null || :
+  (( ! $? ))             && ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 2 $FROM $DUR ${OUT:-${IN%.*}-out.webm}
 
   (( ! $? )) && echo "Video converted!"
 }
