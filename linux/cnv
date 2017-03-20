@@ -245,6 +245,7 @@ $(_param "-b|--bitrate" "000k" "Video encoding bitrate")
 $(_param "-w|--width" "  000 " "Output video width (preserves aspect ratio)")
 
 $(_param -2 "Perform only 2nd pass encoding")
+$(_param --slow "Use \"slow\" x264 encoding preset (def. \"fast\")")
 $(_param --log "quiet|panic|fatal|error|warning|info|verbose|debug|trace" "")
 
 $(_param "-di|--deinterlace")
@@ -273,6 +274,7 @@ EOF
   fi
 
   local only_2nd_pass=0
+  local preset=fast
 
   while [[ $# > 1 ]]; do
   case "$1" in
@@ -309,6 +311,8 @@ EOF
     IFS=: read -ra eq <<< "$2"
     VF+=eq=contrast=${eq[0]-1}:brightness=${eq[1]-0}:gamma=${eq[2]-1}
     shift ;;
+  --slow)
+    preset=slow ;;
   -2)
     only_2nd_pass=1 ;;
   -cr|--crop)
@@ -331,7 +335,7 @@ EOF
   local ARGS="\
     $FROM -i \"$1\" $DUR \
     -y -hide_banner \
-    -c:v libx264 $BV -preset:v fast -x264opts threads=9 $VF \
+    -c:v libx264 $BV -preset:v $preset -x264opts threads=9 $VF \
     -c:a libfdk_aac -ar 44100 -vbr 3 \
     $LOG"
 
