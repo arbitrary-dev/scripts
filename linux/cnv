@@ -245,7 +245,9 @@ $(_param "-b|--bitrate" "000k" "Video encoding bitrate")
 $(_param "-w|--width" "  000 " "Output video width (preserves aspect ratio)")
 
 $(_param -2 "Perform only 2nd pass encoding")
+$(_param -sc "Copy subtitle stream")
 $(_param --slow "Use \"slow\" x264 encoding preset (def. \"fast\")")
+$(_param "-t|--threads" "17" "")
 $(_param --log "quiet|panic|fatal|error|warning|info|verbose|debug|trace" "")
 
 $(_param "-di|--deinterlace")
@@ -275,6 +277,7 @@ EOF
 
   local only_2nd_pass=0
   local preset=fast
+  local threads=17
 
   while [[ $# > 1 ]]; do
   case "$1" in
@@ -319,6 +322,11 @@ EOF
     [[ -n $VF ]] && VF+=,
     VF+=crop=$2
     shift ;;
+  -sc)
+    scopy="-c:s copy" ;;
+  -t|--threads)
+    threads=$2
+    shift ;;
   --log)
     LOG="-v $2"
     shift ;;
@@ -335,7 +343,8 @@ EOF
   local ARGS="\
     $FROM -i \"$1\" $DUR \
     -y -hide_banner \
-    -c:v libx264 $BV -preset:v $preset -x264opts threads=9 $VF \
+    -c:v libx264 $BV -preset:v $preset -x264opts threads=$threads $VF \
+    $scopy \
     -c:a libfdk_aac -ar 44100 -vbr 3 \
     $LOG"
 
