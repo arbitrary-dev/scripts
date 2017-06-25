@@ -2,6 +2,10 @@
 
 ERR=${0##*/}-err.log
 
+_mimetype() {
+  file --mime-type $1 | sed -r "s/.+ //"
+}
+
 _log() {
   printf "$*\n"
 }
@@ -48,7 +52,7 @@ EOF
   fi
 
   while (( $# )); do
-    [[ $(mimetype -b "$1") = audio* ]] && LIST+="\n$1"
+    [[ $(_mimetype "$1") = audio* ]] && LIST+="\n$1"
     shift
   done
 
@@ -80,8 +84,8 @@ EOF
   fi
 
   while (( $# )); do
-    if [[ $(mimetype -b "$1") = image* ]]; then
-      [[ -n $LIST ]] && LIST+='\n'
+    if [[ $(_mimetype "$1") = image* ]]; then
+      [[ -n $LIST ]] && LIST+="\n"
       LIST+="$1"
     fi
     shift
@@ -89,7 +93,8 @@ EOF
 
   export -f _photo
   printf "$LIST" | parallel --will-cite _photo
-  _log "\nPhotos were successfully converted."
+  [[ $? = 0 ]] && _log "\nPhotos were successfully converted." \
+               || _log "\nSomething nasty has happened."
 }
 
 _photo() {
@@ -119,7 +124,7 @@ EOF
   [[ $1 = -f ]] && F="-f " && shift
 
   while (( $# )); do
-    if [[ $(mimetype -b "$1") == image* ]]; then
+    if [[ $(_mimetype "$1") = image* ]]; then
       [[ -n $LIST ]] && LIST+="\n"
       LIST+="$F$1"
     fi
@@ -176,8 +181,8 @@ EOF
   fi
 
   while (( $# )); do
-    if [[ $(mimetype -b "$1") = video* ]]; then
-      [[ -n $LIST ]] && LIST+='\n'
+    if [[ $(_mimetype "$1") = video* ]]; then
+      [[ -n $LIST ]] && LIST+="\n"
       LIST+="$1"
     fi
     shift
