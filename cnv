@@ -252,7 +252,7 @@ $(_param "-w|--width" "  000 " "Output video width (preserves aspect ratio)")
 $(_param -2 "Perform only 2nd pass encoding")
 $(_param -sc "Copy subtitle stream")
 $(_param --slow "Use \"slow\" x264 encoding preset (def. \"fast\")")
-$(_param "-t|--threads" "17" "")
+$(_param "-t|--threads" 2 "")
 $(_param --log "quiet|panic|fatal|error|warning|info|verbose|debug|trace" "")
 
 $(_param "-di|--deinterlace")
@@ -280,9 +280,9 @@ EOF
     return 1
   fi
 
-  local only_2nd_pass=0
+  local pass2=0
   local preset=fast
-  local threads=17
+  local threads=2
 
   while [[ $# > 1 ]]; do
   case "$1" in
@@ -322,7 +322,7 @@ EOF
   --slow)
     preset=slow ;;
   -2)
-    only_2nd_pass=1 ;;
+    pass2=1 ;;
   -cr|--crop)
     [[ -n $VF ]] && VF+=,
     VF+=crop=$2
@@ -348,7 +348,7 @@ EOF
   local ARGS="\
     $FROM -i \"$1\" $DUR \
     -y -hide_banner \
-    -c:v libx264 $BV -preset:v $preset -x264opts threads=$threads $VF \
+    -c:v libx264 $BV -preset:v $preset -x264-params threads=$threads $VF \
     $scopy \
     -c:a libfdk_aac -ar 44100 -vbr 3 \
     $LOG"
@@ -356,8 +356,8 @@ EOF
   local out=${2:-${1%.*}-out.mkv}
   _log "< $1"
 
-  (( ! $only_2nd_pass )) && eval "ffmpeg $ARGS -pass 1 -f matroska /dev/null" || :
-  (( ! $? ))             && eval "ffmpeg $ARGS -pass 2 \"$out\""
+  (( ! $pass2 )) && eval "ffmpeg $ARGS -pass 1 -f matroska /dev/null" || :
+  (( ! $? ))     && eval "ffmpeg $ARGS -pass 2 \"$out\""
 
   (( ! $? )) && _log "> $out"
 }
@@ -399,7 +399,7 @@ EOF
   local codec=libvpx-vp9
   local pr_i
   local pr_vf
-  local only_2nd_pass=0
+  local pass2=0
   local IN
   local OUT
 
@@ -432,7 +432,7 @@ EOF
     pr_vf="[0:v][1:v]overlay=0:0:enable="
     shift ;;
   -2)
-    only_2nd_pass=1 ;;
+    pass2=1 ;;
   *)
     (( $# > 2 )) && _log "Unknown argument '$1'!" && return 1
     [[ $# = 2 && $2 != *.webm ]] && _log "Wrong output file '$2' must be *.webm!" && return 1
@@ -461,8 +461,8 @@ EOF
         -speed 0 -g 9999 -frame-parallel 0 -pix_fmt +yuv420p -sn \
         -c:a libopus -b:a 64k -ac $AC"
 
-  (( ! $only_2nd_pass )) && ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 1 -f webm $FROM $DUR /dev/null || :
-  (( ! $? ))             && ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 2 $FROM $DUR ${OUT:-${IN%.*}-out.webm}
+  (( ! $pass2 )) && ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 1 -f webm $FROM $DUR /dev/null || :
+  (( ! $? ))     && ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 2 $FROM $DUR ${OUT:-${IN%.*}-out.webm}
 
   (( ! $? )) && echo "Video converted!"
 }

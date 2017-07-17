@@ -11,8 +11,11 @@ Utility for convenient media convertion.
 
 Requires these gentoo packages:
 - media-gfx/imagemagick
-- media-video/ffmpeg
+- media-video/ffmpeg x264 vpx fdk
 - sys-process/parallel
+
+And license:
+- media-libs/fdk-aac FraunhoferFDK
 
 ### dominant-color
 
