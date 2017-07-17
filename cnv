@@ -467,6 +467,128 @@ EOF
   (( ! $? )) && echo "Video converted!"
 }
 
+gif() {
+  if (( ! $# )); then
+    cat <<EOF
+Convert video to GIF
+$(_usage) [options] <input> [output.gif]
+$(_param "-f|--from" "    00:00:00.000" "Starting time for video encoding")
+$(_param "-d|--duration" "00:00:00.000" "Total duration time for video encoding")
+
+$(_param "-w|--width" "  000 " "Output video width (preserves aspect ratio)")
+
+$(_param -2 "Perform only 2nd pass encoding")
+$(_param --diff "Use \"stats_mode=diff\", which favors moving (def. \"full\")")
+$(_param --dithering "none|bayer:bayer_scale=N|floyd_steinberg|sierra2|sierra2_4a" "(def. \"floyd_steinberg\")")
+$(_param --fps 15 "")
+$(_param --log "quiet|panic|fatal|error|warning|info|verbose|debug|trace" "")
+
+$(_param "-di|--deinterlace")
+$(_param "-dn|--denoise" "luma_spatial:chroma_spatial:luma_tmp:chroma_tmp" \
+"\nApply denoise filter.
+Default values:
+luma_spatial   = 4
+chroma_spatial = 3
+luma_tmp       = 6
+chroma_tmp     = 4.5")
+
+$(_param -eq "contrast:brightness:gamma" \
+"\nApply eq flter.
+Default values and possible ranges:
+contrast   = 1 [-2.0 ..  2.0]
+brightness = 0 [-1.0 ..  1.0]
+gamma      = 1 [ 0.1 ..  10 ]")
+
+$(_param "-cr|--crop" "width:height:x:y" \
+"\nApply crop flter.
+x,y - crop start position from top left corner")
+
+$(_param -vf filters "Additional video filters to apply")
+EOF
+    return 1
+  fi
+
+  local pass2=0
+  local smode=full
+  local dith=floyd_steinberg
+  local fps=5
+  local colors=32
+
+  while [[ $# > 1 ]]; do
+  case "$1" in
+  -f|--from)
+    FROM="-ss $2"
+    shift ;;
+  -d|--duration)
+    DUR="-t $2"
+    shift ;;
+  -vf)
+    [ -n "$VF" ] && VF+=,
+    VF+=$2
+    shift ;;
+  -w|--width)
+    [ -n "$VF" ] && VF+=,
+    VF+="scale=${2}:-1:flags=lanczos"
+    shift ;;
+  -dn|--denoise)
+    [ -n "$VF" ] && VF+=,
+    if [[ $2 =~ ^[0-9.:]+$ ]]; then
+      IFS=: read -ra dn <<< "$2"
+      shift
+    fi
+    VF+="hqdn3d=${dn[0]-4}:${dn[1]-3}:${dn[2]-6}:${dn[3]-4.5}" ;;
+  -eq)
+    [[ -n $VF ]] && VF+=,
+    local eq
+    IFS=: read -ra eq <<< "$2"
+    VF+=eq=contrast=${eq[0]-1}:brightness=${eq[1]-0}:gamma=${eq[2]-1}
+    shift ;;
+  --diff)
+    smode=diff ;;
+  --dithering)
+    dith=$2
+    shift ;;
+  --fps)
+    fps=$2
+    shift ;;
+  -c|--colors)
+    colors=$2
+    shift ;;
+  -2)
+    pass2=1 ;;
+  -cr|--crop)
+    [[ -n $VF ]] && VF+=,
+    VF+=crop=$2
+    shift ;;
+  --log)
+    LOG="-v $2"
+    shift ;;
+  *)
+    (( $# > 2 )) && _log "Unknown argument '$1'!" && return 1
+    [[ $# = 2 && $2 != *.gif ]] && _log "Wrong output file '$2' must be *.gif!" && return 1
+    break ;;
+  esac
+  shift
+  done
+
+  [ -n "$VF" ] && VF+=,
+  VF+="fps=$fps"
+
+  local ARGS="\
+    $FROM $DUR -i \"$1\" \
+    -y -hide_banner \
+    $LOG"
+
+  local out=${2:-${1%.*}-out.gif}
+  local palette="/tmp/palette-${out%.*}.png"
+  _log "< $1"
+
+  (( ! $pass2 )) && eval "ffmpeg $ARGS -vf \"$VF,palettegen=stats_mode=$smode:max_colors=$colors\" $palette" || :
+  (( ! $? ))     && eval "ffmpeg $ARGS -i $palette -lavfi \"$VF [x]; [x][1:v] paletteuse=dither=$dith\" \"$out\""
+
+  (( ! $? )) && _log "> $out"
+}
+
 if (( ! $# )); then
   cat <<EOF
 Universal media convertor
