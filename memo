@@ -1,0 +1,70 @@
+#!/bin/bash
+
+memo=$DOCS/memo
+
+check() {
+  if [[ ! -f $memo ]]; then
+    echo "No memo at $memo"
+    exit 1
+  fi
+}
+
+join_by() { local IFS="$1"; shift; echo "$*"; }
+
+m() {
+  check
+
+  if (( ! $# )); then
+    local list=(`gpg -qd $memo | cut -d' ' -f1`)
+    echo ${list[@]}
+  elif (( $# == 1 )); then
+    local list="`gpg -qd $memo | grep -i $1`"
+    local c=`echo -e "$list" | wc -l`
+    if (( $c > 1 )); then
+      echo -e "$list"
+    elif [[ -n "$list" ]]; then
+      echo $list | cut -d' ' -f2- \
+        | termux-clipboard-set
+      termux-clipboard-get
+    else
+      echo "No entries!"
+    fi
+  else
+    gpg -qd $memo | grep -iE `join_by \| $*`
+  fi
+}
+
+me() {
+  check
+
+  local temp=`mktemp .memo_XXXX`
+
+  local pass
+  read -sp "GPG password: " pass
+  echo
+
+  gpg --batch --passphrase $pass -o $temp --yes -qd $memo
+  if (( $? )); then
+    shred -u $temp
+    return 1
+  fi
+  vim $temp
+  if (( $? )); then
+    shred -u $temp
+    echo Update cancelled.
+    return 1
+  fi
+  gpg --batch --passphrase $pass -o $memo --yes -qc $temp
+  local r=$?
+  shred -u $temp
+  (( ! $r )) && echo Memo updated!
+}
+
+if (( ! $# )); then
+  echo "Usage: ${0##*/} --edit | keys..."
+  exit 1
+elif [[ $1 = --edit ]]; then
+  me
+else
+  m "$@"
+fi

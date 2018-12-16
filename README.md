@@ -3,20 +3,24 @@ scripts
 
 ### bkrn
 
-Helps to build kernel.
+Utilities for building kernel
 
 ### cnv
 
-Utility for convenient media convertion.
+Utilities for convenient media convertion
 
 Requires these gentoo packages:
-- media-gfx/imagemagick
-- media-video/ffmpeg x264 vpx fdk
-- sys-process/parallel
+- `media-gfx/imagemagick`
+- `media-video/ffmpeg x264 vpx fdk`
+- `sys-process/parallel`
 
 And license:
-- media-libs/fdk-aac FraunhoferFDK
+- `media-libs/fdk-aac FraunhoferFDK`
 
 ### dominant-color
 
-Returns dominant color of supplied image.
+Returns dominant color of supplied image
+
+### memo
+
+Utilities to work with memo file
