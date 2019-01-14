@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 
 import os
-from jira import JIRA
+from jira import JIRA, JIRAError
 import argparse
+import re
 
-jira_user = os.environ['JIRA_USER']
-jira_pass = os.environ['JIRA_PASS']
-jira_proj = os.environ['JIRA_DEF_PROJECT']
-jira_url  = os.environ['JIRA_URL']
+def init_jira():
+  jira_user = os.environ['JIRA_USER']
+  jira_pass = os.environ['JIRA_PASS']
+  jira_proj = os.environ['JIRA_DEF_PROJECT']
+  jira_url  = os.environ['JIRA_URL']
 
-j = JIRA(jira_url, basic_auth=(jira_user, jira_pass))
+  j = JIRA(jira_url, basic_auth=(jira_user, jira_pass))
+  j.def_project = jira_proj
+
+  return j
 
 p = argparse.ArgumentParser(description="Utility for working with JIRA")
 sp = p.add_subparsers(dest='command')
 
 show_sp = sp.add_parser('show')
+show_sp.add_argument('ticket')
 show_sp.add_argument('-f', '--format')
 
 work_sp = sp.add_parser('work')
@@ -24,12 +30,29 @@ work_sp.add_argument('-c', '--comment', default='work')
 sp.add_parser('list')
 
 args = p.parse_args()
+cmd = args.command
+jira = init_jira() if cmd else None
+# TODO check ticket value and apply `jira.def_project` if necessary
 
-print(args)
+def show(ticket, format):
+  try:
+    issue = jira.issue(ticket)
+    print(issue)
+  except JIRAError as e:
+    print(e.text)
+
+if cmd == 'show':
+  show(args.ticket, args.format)
+elif cmd == 'work':
+  print(args)
+elif cmd == 'list':
+  print(args)
+else:
+  p.print_help()
 
 # TODO
 #
 # jira show TICKET
-# jira show -F "%id %summary"
+# jira show -f "%id %summary"
 # jira work
 # jira list
