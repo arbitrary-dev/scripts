@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+# pip3 install jira jsonpath-rw
+
 import os
 from jira import JIRA, JIRAError
 import argparse
 import re
+from jsonpath_rw import parse as json_parse
 
 def init_jira():
   jira_user = os.environ['JIRA_USER']
@@ -20,6 +23,7 @@ p = argparse.ArgumentParser(description="Utility for working with JIRA")
 sp = p.add_subparsers(dest='command')
 
 show_sp = sp.add_parser('show')
+# TODO support for stdin list of tickets
 show_sp.add_argument('ticket')
 show_sp.add_argument('-f', '--format')
 
@@ -33,13 +37,26 @@ args = p.parse_args()
 cmd = args.command
 jira = init_jira() if cmd else None
 
+fields_re = re.compile('%([a-zA-Z_0-9]+)|%{ ?([a-zA-Z_0-9.]+) ?}')
+
+def parse_format(format):
+  fields = [f.group(1) or f.group(2) for f in fields_re.finditer(format)]
+  fieldsFilter = [f.split('.', 1)[0] for f in fields]
+  return (fieldsFilter, fields)
+
 def show(ticket, format):
   try:
-    issue = jira.issue(ticket, fields=['id, summary, description'])
+    (fieldsFilter, fields) = parse_format(format)
+    issue = jira.issue(ticket, fields=fieldsFilter)
     fs = issue.raw['fields']
-    # TODO https://github.com/kennknowles/python-jsonpath-rw
-    print(issue.raw)
-    # print('%s %s' % (issue, fs['summary']))
+    result = format
+    for f in fields:
+      value = str(issue) if f == 'id' else None
+      if not value:
+        list = json_parse('fields.' + f).find(issue.raw)
+        value = (list and list[0].value) or "NULL"
+      result = fields_re.sub(value, result, count=1)
+    print(result)
   except JIRAError as e:
     print(e.text)
 
@@ -56,6 +73,5 @@ else:
 # TODO
 #
 # jira show TICKET
-# jira show -f "%id %summary"
 # jira work
 # jira list
