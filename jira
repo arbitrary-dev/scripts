@@ -32,16 +32,19 @@ sp.add_parser('list')
 args = p.parse_args()
 cmd = args.command
 jira = init_jira() if cmd else None
-# TODO check ticket value and apply `jira.def_project` if necessary
 
 def show(ticket, format):
   try:
-    issue = jira.issue(ticket)
-    print(issue)
+    issue = jira.issue(ticket, fields=['id, summary, description'])
+    fs = issue.raw['fields']
+    # TODO https://github.com/kennknowles/python-jsonpath-rw
+    print(issue.raw)
+    # print('%s %s' % (issue, fs['summary']))
   except JIRAError as e:
     print(e.text)
 
 if cmd == 'show':
+  # TODO check ticket value and apply `jira.def_project` if necessary
   show(args.ticket, args.format)
 elif cmd == 'work':
   print(args)
