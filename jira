@@ -28,6 +28,7 @@ show_sp.add_argument('ticket')
 show_sp.add_argument('-f', '--format')
 
 work_sp = sp.add_parser('work')
+work_sp.add_argument('ticket')
 work_sp.add_argument('time', nargs='?', default='1h')
 work_sp.add_argument('-c', '--comment', default='work')
 
@@ -39,12 +40,13 @@ jira = init_jira() if cmd else None
 
 fields_re = re.compile('%([a-zA-Z_0-9]+)|%{ ?([a-zA-Z_0-9.]+) ?}')
 
-def parse_format(format):
-  fields = [f.group(1) or f.group(2) for f in fields_re.finditer(format)]
-  fieldsFilter = [f.split('.', 1)[0] for f in fields]
-  return (fieldsFilter, fields)
-
 def show(ticket, format):
+
+  def parse_format(format):
+    fields = [f.group(1) or f.group(2) for f in fields_re.finditer(format)]
+    fieldsFilter = [f.split('.', 1)[0] for f in fields]
+    return (fieldsFilter, fields)
+
   try:
     (fieldsFilter, fields) = parse_format(format)
     issue = jira.issue(ticket, fields=fieldsFilter)
@@ -60,11 +62,35 @@ def show(ticket, format):
   except JIRAError as e:
     print(e.text)
 
+def work(ticket, time='1h', comment='work'):
+
+  def worklog_to_update(w):
+    from datetime import datetime
+    from dateutil.parser import parse as parse_date
+    return (parse_date(w.started).date() == datetime.today().date() and
+      w.comment == comment)
+
+  ws = list(filter(worklog_to_update, jira.worklogs(ticket)))
+  w = ws and ws[0] or None
+
+  def t(str):
+    return int(str.strip('h'))
+
+  if w:
+    t_old = t(w.timeSpent)
+    t_add = t(time)
+    t_new = str(t_old + t_add) + 'h'
+    w.update(timeSpent=t_new)
+    print('Worklog updated!')
+  else:
+    jira.add_worklog(ticket, timeSpent=time, comment=comment)
+    print('New worklog added!')
+
 if cmd == 'show':
   # TODO check ticket value and apply `jira.def_project` if necessary
   show(args.ticket, args.format)
 elif cmd == 'work':
-  print(args)
+  work(args.ticket, args.time, args.comment)
 elif cmd == 'list':
   print(args)
 else:
@@ -73,5 +99,4 @@ else:
 # TODO
 #
 # jira show TICKET
-# jira work
 # jira list
