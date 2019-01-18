@@ -7,6 +7,7 @@ from jira import JIRA, JIRAError
 import argparse
 import re
 from jsonpath_rw import parse as json_parse
+import sys
 
 def init_jira():
   jira_user = os.environ['JIRA_USER']
@@ -23,8 +24,7 @@ p = argparse.ArgumentParser(description="Utility for working with JIRA")
 sp = p.add_subparsers(dest='command')
 
 show_sp = sp.add_parser('show')
-# TODO support for stdin list of tickets
-show_sp.add_argument('ticket')
+show_sp.add_argument('tickets', nargs='*')
 show_sp.add_argument('-f', '--format')
 
 work_sp = sp.add_parser('work')
@@ -41,6 +41,7 @@ jira = init_jira() if cmd else None
 fields_re = re.compile('%([a-zA-Z_0-9]+)|%{ ?([a-zA-Z_0-9.]+) ?}')
 
 def show(ticket, format):
+  format = format or '%id %summary\n\n%description'
 
   def parse_format(format):
     fields = [f.group(1) or f.group(2) for f in fields_re.finditer(format)]
@@ -88,7 +89,9 @@ def work(ticket, time='1h', comment='work'):
 
 if cmd == 'show':
   # TODO check ticket value and apply `jira.def_project` if necessary
-  show(args.ticket, args.format)
+  ts = args.tickets or map(lambda l: l.rstrip(), sys.stdin)
+  for t in ts:
+    show(t, args.format)
 elif cmd == 'work':
   work(args.ticket, args.time, args.comment)
 elif cmd == 'list':
