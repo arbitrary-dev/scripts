@@ -589,17 +589,17 @@ EOF
   [ -n "$VF" ] && VF+=,
   VF+="fps=$fps"
 
-  local ARGS="\
-    $FROM $DUR -i \"$1\" \
-    -y -hide_banner \
-    $LOG"
+  local ARGS="$FROM $DUR -y -hide_banner $LOG"
 
   local out=${2:-${1%.*}-out.gif}
   local palette="/tmp/palette-${out%.*}.png"
+  local VF1="$VF,palettegen=stats_mode=$smode:max_colors=$colors"
+  local VF2="$VF [x]; [x][1:v] paletteuse=dither=$dith"
+
   _log "< $1"
 
-  (( ! $pass2 )) && eval "ffmpeg $ARGS -vf \"$VF,palettegen=stats_mode=$smode:max_colors=$colors\" $palette" || :
-  (( ! $? ))     && eval "ffmpeg $ARGS -i $palette -lavfi \"$VF [x]; [x][1:v] paletteuse=dither=$dith\" \"$out\""
+  (( ! $pass2 ))       && ffmpeg $ARGS -i "$1" -vf "$VF1" "$palette"
+  (( ! $? || $pass2 )) && ffmpeg $ARGS -i "$1" -i $palette -lavfi "$VF2" "$out"
 
   (( ! $? )) && _log "> $out"
 }
