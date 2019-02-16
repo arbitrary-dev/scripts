@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-memo=$MY_DOCS/memo
+memo=$MY_DOCS/_misc/memo
 
 check() {
   if [[ ! -f $memo ]]; then
@@ -10,6 +10,11 @@ check() {
 }
 
 join_by() { local IFS="$1"; shift; echo "$*"; }
+
+_copy() {
+  termux-clipboard-set 2>/dev/null \
+  || xclip -i -selection clipboard 2>/dev/null
+}
 
 m() {
   check
@@ -23,9 +28,9 @@ m() {
     if (( $c > 1 )); then
       echo -e "$list"
     elif [[ -n "$list" ]]; then
-      echo $list | cut -d' ' -f2- \
-        | termux-clipboard-set
-      termux-clipboard-get
+      local res=`echo $list | cut -d' ' -f2- | sed s/%/%%/g`
+      printf $res | _copy
+      (( $? )) && echo $res || echo "Copied to clipboard!"
     else
       echo "No entries!"
     fi
