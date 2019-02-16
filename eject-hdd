@@ -1,0 +1,57 @@
+#!/bin/sh
+
+if (( ! $# )); then
+  echo "Usage: ${0##*/} <directory|device>"
+  exit
+fi
+
+main_dev=`mount | grep $1 | cut -d\  -f1`
+
+[[ $1 = /dev/* ]] && ls $1 > /dev/null 2>&1 \
+&& main_dev=$1
+
+if [[ -z "$main_dev" ]]; then
+  echo "$1 is not mounted."
+  exit 1
+fi
+
+main_dev=${main_dev%%[0-9]*}
+devs=`mount | grep $main_dev | cut -d\  -f1`
+usb_name=`udevadm info --query=path -n $main_dev | cut -d/ -f6`
+usb=/sys/bus/usb/devices/$usb_name
+name=`cat $usb/product`
+
+printf "Setting autosuspend for USB $usb_name... "
+echo auto > $usb/power/control
+echo 0 > $usb/power/autosuspend_delay_ms
+echo done
+
+for dev in $devs; do
+  printf "Unmounting $dev... "
+  umount $dev
+  if (( $? )); then
+    echo "Unable to unmount $dev"
+    exit 1
+  fi
+  echo done
+done
+
+if ! hdparm -B $main_dev 2> /dev/null | grep -q "not supported"; then
+  printf "Spinning down $main_dev... "
+  hdparm -S1 $main_dev > /dev/null 2>&1
+  if (( $? )); then
+    echo "Unable to spin down $name"
+    exit 1
+  fi
+
+  sleep 6
+  echo done
+else
+  sleep 3
+fi
+
+printf "Unbinding USB $usb_name... "
+echo $usb_name > /sys/bus/usb/drivers/usb/unbind
+echo done
+
+echo "'$name' should be safe to eject now."
