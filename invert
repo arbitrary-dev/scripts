@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# class=`xprop | grep WM_CLASS | cut -d\\" -f4`
+# compton -b --invert-color-include "class_g=\"$class\""
+
+pkill compton \
+|| compton -b --invert-color-include "class_g=\"qutebrowser\" ||
+     class_g=\"Gnumeric\" || class_g=\"GoldenDict\""
