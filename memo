@@ -1,6 +1,6 @@
 #!/bin/bash
 
-memo=$DOCS/memo
+memo=$MY_DOCS/memo
 
 check() {
   if [[ ! -f $memo ]]; then
