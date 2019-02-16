@@ -1,0 +1,18 @@
+#!/bin/sh
+
+file=$MY_DOCS/_misc/expenses.gnumeric
+temp=`mktemp .expenses_XXXX`
+
+read -sp "GPG password: " pass
+echo
+
+gpg --batch --passphrase $pass -o $temp --yes -qd $file
+if (( $? )); then
+  shred -u $temp
+  exit 1
+fi
+
+gnumeric $temp
+
+gpg --batch --passphrase $pass -o $file --yes -qc $temp
+shred -u $temp
