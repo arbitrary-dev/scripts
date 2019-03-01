@@ -45,7 +45,7 @@ m() {
 me() {
   check
 
-  local temp=`mktemp .memo_XXXX`
+  local temp=$TMPDIR/`mktemp .memo_XXXX`
 
   local pass
   read -sp "GPG password: " pass
