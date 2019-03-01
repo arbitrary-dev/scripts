@@ -3,11 +3,11 @@ scripts
 
 ### bkrn
 
-Utilities for building kernel
+Utilities for building kernel.
 
 ### cnv
 
-Utilities for convenient media convertion
+Utilities for convenient media convertion.
 
 Dependencies:
 - `media-gfx/imagemagick`
@@ -18,12 +18,12 @@ Dependencies:
 
 ### dominant-color
 
-Returns dominant color of supplied image
+Returns dominant color of supplied image.
 
 ### eject-device
 
 Performs all the nasty stuff of autosuspending USB, spinning down the drive and
-unbinding USB device
+unbinding USB device.
 
 Dependencies:
 - `sys-fs/udev`
@@ -31,7 +31,7 @@ Dependencies:
 
 ### expenses
 
-Poor fellow's calculator
+Poor fellow's calculator.
 
 Dependencies:
 - `app-office/gnumeric`
@@ -40,7 +40,7 @@ Dependencies:
 
 ### invert
 
-Poor fellow's night-mode
+Poor fellow's night-mode.
 
 Dependencies:
 - `x11-misc/compton`
@@ -48,7 +48,7 @@ Dependencies:
 
 ### jira
 
-CLI for JIRA
+CLI for JIRA.
 
 Dependencies:
 - `python3`
