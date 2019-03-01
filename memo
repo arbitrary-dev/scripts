@@ -13,7 +13,10 @@ join_by() { local IFS="$1"; shift; echo "$*"; }
 
 _copy() {
   termux-clipboard-set 2>/dev/null \
-  || xclip -i -selection clipboard 2>/dev/null
+  || xclip -i -selection clipboard 2>/dev/null \
+  || pbcopy
+
+  (( ! $? )) && echo "Copied to clipboard!"
 }
 
 m() {
@@ -29,8 +32,8 @@ m() {
       echo -e "$list"
     elif [[ -n "$list" ]]; then
       local res=`echo $list | cut -d' ' -f2- | sed s/%/%%/g`
+      echo $res
       printf $res | _copy
-      (( $? )) && echo $res || echo "Copied to clipboard!"
     else
       echo "No entries!"
     fi
