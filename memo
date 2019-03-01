@@ -2,9 +2,16 @@
 
 memo=$MY_DOCS/_misc/memo
 
-check() {
+check_memo() {
   if [[ ! -f $memo ]]; then
     echo "No memo at $memo"
+    exit 1
+  fi
+}
+
+check_shred() {
+  if ! which shred >/dev/null; then
+    echo "No 'shred' available!"
     exit 1
   fi
 }
@@ -20,7 +27,7 @@ _copy() {
 }
 
 m() {
-  check
+  check_memo
 
   if (( ! $# )); then
     local list=(`gpg -qd $memo | cut -d' ' -f1`)
@@ -43,7 +50,8 @@ m() {
 }
 
 me() {
-  check
+  check_memo
+  check_shred
 
   local temp=$TMPDIR/`mktemp .memo_XXXX`
 
