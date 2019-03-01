@@ -6,7 +6,8 @@ import os
 from jira import JIRA, JIRAError
 import argparse
 import re
-from jsonpath_rw import parse as json_parse
+from jsonpath_rw import parse as parse_json
+from dateutil.parser import parse as parse_date
 import sys
 
 def init_jira():
@@ -41,7 +42,9 @@ jira = init_jira() if cmd else None
 fields_re = re.compile('%([a-zA-Z_0-9]+)|%{ ?([a-zA-Z_0-9.]+) ?}')
 
 def show(ticket, format):
-  format = format or '%id %summary\n\n%description'
+  # TODO add LINKS section to default format
+  # TODO color headers
+  format = format or '%id %summary\n\n%description\n\nCOMMENTS\n\n%comments'
 
   def parse_format(format):
     fields = [f.group(1) or f.group(2) for f in fields_re.finditer(format)]
@@ -54,11 +57,25 @@ def show(ticket, format):
     fs = issue.raw['fields']
     result = format
     for f in fields:
-      value = str(issue) if f == 'id' else None
+      value = None
+      if f == 'id':
+        value = str(issue)
+      elif f == 'comments':
+        cs = jira.comments(issue)
+        if cs:
+          value = ''
+        for c in map(lambda c: c.raw, cs):
+          value += c['author']['name']
+          value += ' '
+          t = parse_date(c['created']).astimezone(tz=None)
+          value += t.strftime('%Y-%m-%d %H:%M')
+          value += '\n'
+          value += c["body"].strip()
+          value += '\n\n'
       if not value:
-        list = json_parse('fields.' + f).find(issue.raw)
+        list = parse_json('fields.' + f).find(issue.raw)
         value = (list and list[0].value) or "NULL"
-      result = fields_re.sub(value, result, count=1)
+      result = fields_re.sub(value.strip(), result, count=1)
     print(result)
   except JIRAError as e:
     print(e.text)
@@ -99,10 +116,8 @@ if cmd == 'show':
 elif cmd == 'work':
   work(args.ticket, args.time, args.comment)
 elif cmd == 'list':
+  # TODO jira list
   print(args)
 else:
   p.print_help()
 
-# TODO
-#
-# jira list
