@@ -87,6 +87,9 @@ def work(ticket, time='1h', comment='work'):
     jira.add_worklog(ticket, timeSpent=time, comment=comment)
     print('New worklog added!')
 
+  # TODO show working time left in a day
+  # https://<JIRA_URL>/rest/api/latest/search?jql=worklogDate=%272019-01-31%27%20AND%20worklogAuthor=%27<JIRA_USER>%27&fields=worklog
+
 if cmd == 'show':
   # TODO check ticket value and apply `jira.def_project` if necessary
   ts = args.tickets or map(lambda l: l.rstrip(), sys.stdin)
