@@ -1,2 +1,14 @@
+*
+!.gitignore
+!README.md
+!bkrn
+!cnv
+!dominant-color
+!eject-device
+!expenses
+!invert
+!jira
+!memo
+
 *.swp
 *.orig
