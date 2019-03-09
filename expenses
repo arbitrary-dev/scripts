@@ -1,6 +1,6 @@
 #!/bin/sh
 
-file=$MY_DOCS/_misc/expenses.gnumeric
+file=$MY_DOCS/_misc/expenses
 temp=`mktemp .expenses_XXXX`
 
 read -sp "GPG password: " pass

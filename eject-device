@@ -24,7 +24,7 @@ name=`cat $usb/product`
 printf "Setting autosuspend for USB $usb_name... "
 echo auto > $usb/power/control
 echo 0 > $usb/power/autosuspend_delay_ms
-echo done
+echo OK
 
 for dev in $devs; do
   printf "Unmounting $dev... "
@@ -33,25 +33,25 @@ for dev in $devs; do
     echo "Unable to unmount $dev"
     exit 1
   fi
-  echo done
+  echo OK
 done
 
 if ! hdparm -B $main_dev 2> /dev/null | grep -q "not supported"; then
   printf "Spinning down $main_dev... "
   hdparm -S1 $main_dev > /dev/null 2>&1
   if (( $? )); then
-    echo "Unable to spin down $name"
+    echo FAIL
     exit 1
   fi
 
   sleep 6
-  echo done
+  echo OK
 else
   sleep 3
 fi
 
 printf "Unbinding USB $usb_name... "
 echo $usb_name > /sys/bus/usb/drivers/usb/unbind
-echo done
+echo OK
 
 echo "'$name' should be safe to eject now."
