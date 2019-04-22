@@ -36,14 +36,8 @@ for dev in $devs; do
   echo OK
 done
 
-if ! hdparm -B $main_dev 2> /dev/null | grep -q "not supported"; then
+if ! hdparm -S1 $main_dev 2>&1 | grep -q failed; then
   printf "Spinning down $main_dev... "
-  hdparm -S1 $main_dev > /dev/null 2>&1
-  if (( $? )); then
-    echo FAIL
-    exit 1
-  fi
-
   sleep 6
   echo OK
 else
