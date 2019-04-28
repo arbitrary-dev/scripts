@@ -187,6 +187,19 @@ _cover() {
   [[ $? = 0 ]] && printf . || printf e
 }
 
+fix() {
+  if (( ! $# )); then
+    cat <<EOF
+Makes a naive attempt to fix media.
+$(_usage) <file> [output]
+EOF
+    return 1
+  fi
+
+  local out=${2-${1%.*}-fixed.${1#*.}}
+  ffmpeg -err_detect ignore_err -i $1 -c copy $out
+}
+
 videos() {
   if (( ! $# )); then
     cat <<EOF
