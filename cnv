@@ -278,6 +278,8 @@ $(_param "-d|--duration" "00:00:00.000" "Total duration time for video encoding"
 $(_param "-b|--bitrate" "000k" "Video encoding bitrate")
 $(_param "-w|--width" "  000 " "Output video width (preserves aspect ratio)")
 
+$(_param -cw "Rotate 90° clockwise")
+$(_param -ccw "Rotate 90° counterclockwise")
 $(_param -2 "Perform only 2nd pass encoding")
 $(_param -sc "Copy subtitle stream")
 $(_param --slow "Use \"slow\" x264 encoding preset (def. \"fast\")")
@@ -341,6 +343,12 @@ EOF
   -di|--deinterlace)
     [ -n "$VF" ] && VF+=,
     VF+=yadif ;;
+  -cw)
+    [ -n "$VF" ] && VF+=,
+    VF+=transpose=1 ;;
+  -ccw)
+    [ -n "$VF" ] && VF+=,
+    VF+=transpose=2 ;;
   -eq)
     [[ -n $VF ]] && VF+=,
     local eq
