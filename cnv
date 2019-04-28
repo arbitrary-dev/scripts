@@ -254,8 +254,8 @@ _video() {
 
   (( $BR_V > 1400000 )) && BR_V=1400000
 
-  ffmpeg -i "$1" -hide_banner -y -v quiet -c:v mpeg4 -b:v $BR_V -vf 'scale=640:trunc(ow/a/2)*2' \
-         -flags +aic+mv4 $A "_${1%.*}.mp4"
+  ffmpeg -i "$1" -hide_banner -y -c:v mpeg4 -b:v $BR_V -vf 'scale=640:trunc(ow/a/2)*2' \
+         -flags +aic+mv4 $A "_${1%.*}.mp4" >/dev/null
 
   if (( $? )); then
     printf e
