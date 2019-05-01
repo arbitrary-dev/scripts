@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 memo=$MY_DOCS/_misc/memo
 
@@ -26,6 +26,20 @@ _copy() {
   (( ! $? )) && echo "Copied to clipboard!"
 }
 
+show() {
+  local list="$1"
+  local c=`echo -e "$list" | wc -l`
+  if (( $c > 1 )); then
+    echo -e "$list"
+  elif [[ -n "$list" ]]; then
+    local res=`echo $list | cut -d' ' -f2- | sed s/%/%%/g`
+    echo $res
+    printf $res | _copy
+  else
+    echo "No entries!"
+  fi
+}
+
 m() {
   check_memo
 
@@ -34,18 +48,11 @@ m() {
     echo ${list[@]}
   elif (( $# == 1 )); then
     local list="`gpg -qd $memo | grep -i $1`"
-    local c=`echo -e "$list" | wc -l`
-    if (( $c > 1 )); then
-      echo -e "$list"
-    elif [[ -n "$list" ]]; then
-      local res=`echo $list | cut -d' ' -f2- | sed s/%/%%/g`
-      echo $res
-      printf $res | _copy
-    else
-      echo "No entries!"
-    fi
+    show "$list"
   else
-    gpg -qd $memo | grep -iE `join_by \| $*`
+    local q=`join_by \| $*`
+    local list="`gpg -qd $memo | grep -iE $q`"
+    show "$list"
   fi
 }
 
@@ -76,11 +83,8 @@ me() {
   (( ! $r )) && echo Memo updated!
 }
 
-if (( ! $# )); then
-  echo "Usage: ${0##*/} --edit | keys..."
-  exit 1
-elif [[ $1 = --edit ]]; then
-  me
-else
-  m "$@"
-fi
+case "$1" in
+  --help|-h) echo "Usage: ${0##*/} --edit|-e | --help|-h | keys..." ;;
+  --edit|-e) me ;;
+  *)         m "$@" ;;
+esac
