@@ -60,7 +60,11 @@ me() {
   check_memo
   check_shred
 
-  local temp=$TMPDIR/`mktemp .memo_XXXX`
+  local temp=$(
+    cd $TMPDIR
+    local f=`mktemp .memo_XXXX`
+    echo $TMPDIR/$f
+  )
 
   local pass
   read -sp "GPG password: " pass
