@@ -63,3 +63,7 @@ Dependencies:
 - `app-crypt/gnupg`
 - `sys-apps/coreutils`
 - `x11-misc/xclip` is optional
+
+### postman
+
+Yet another [Postman](https://www.getpostman.com) bicycle.
