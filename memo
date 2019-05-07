@@ -28,9 +28,9 @@ _copy() {
 
 show() {
   local list="$1"
-  local c=`echo -e "$list" | wc -l`
+  local c=`echo "$list" | wc -l`
   if (( $c > 1 )); then
-    echo -e "$list"
+    echo "$list"
   elif [[ -n "$list" ]]; then
     local res=`echo $list | cut -d' ' -f2- | sed s/%/%%/g`
     echo $res
