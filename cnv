@@ -268,6 +268,12 @@ _video() {
   fi
 }
 
+concat() {
+  local files=`for f in $*; do echo "file '$PWD/$f'"; done`
+  printf $files
+  ffmpeg -f concat -safe 0 -i <(printf "$files") -c copy output.mp4
+}
+
 film() {
   if (( ! $# )); then
     cat <<EOF
