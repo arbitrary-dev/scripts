@@ -254,7 +254,8 @@ _video() {
 
   (( $BR_V > 1400000 )) && BR_V=1400000
 
-  ffmpeg -i "$1" -hide_banner -y -c:v mpeg4 -b:v $BR_V -vf 'scale=640:trunc(ow/a/2)*2' \
+  # TODO use film in parallel and with -passlogfile
+  ffmpeg -i "$1" -v quiet -hide_banner -y -c:v mpeg4 -b:v $BR_V -vf 'scale=640:trunc(ow/a/2)*2' \
          -flags +aic+mv4 $A "_${1%.*}.mp4" >/dev/null
 
   if (( $? )); then
@@ -373,7 +374,6 @@ EOF
     shift ;;
   *)
     (( $# > 2 )) && _log "Unknown argument '$1'!" && return 1
-    [[ $# = 2 && $2 != *.mkv ]] && _log "Wrong output file '$2' must be *.mkv!" && return 1
     break ;;
   esac
   shift
@@ -392,7 +392,7 @@ EOF
   local out=${2:-${1%.*}-out.mkv}
   _log "< $1"
 
-  [[ -z ${p2only+y} ]] && eval "ffmpeg $ARGS -pass 1 -f matroska /dev/null" || :
+  [[ -z ${p2only+y} ]] && eval "ffmpeg $ARGS -pass 1 -f null /dev/null" || :
   (( ! $? ))           && eval "ffmpeg $ARGS ${p2only--pass 2} \"$out\""
 
   (( ! $? )) && _log "> $out"
