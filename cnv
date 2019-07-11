@@ -274,6 +274,13 @@ concat() {
   ffmpeg -f concat -safe 0 -i <(printf "$files") -c copy output.mp4
 }
 
+cut() {
+  [[ ! "$2" =~ beginning|start ]] && start="-ss $2"
+  [[ ! "$3" =~ end|finish ]] && finish="-t $3"
+  local out=${4:-${1%.*}-cut.${1#*.}}
+  ffmpeg -i $1 $start $finish -c copy $out
+}
+
 film() {
   if (( ! $# )); then
     cat <<EOF
