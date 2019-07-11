@@ -402,7 +402,7 @@ EOF
     -c:a libfdk_aac -ar 44100 -vbr 3 \
     $LOG"
 
-  local out=${2:-${1%.*}-out.mkv}
+  local out=${2:-${1%.*}-out.${1##*.}}
   _log "< $1"
 
   [[ -z ${p2only+y} ]] && eval "ffmpeg $ARGS -pass 1 -f null /dev/null" || :
