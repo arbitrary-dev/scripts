@@ -50,8 +50,15 @@ Dependencies:
 
 CLI for JIRA.
 
+Env variables required:
+- `JIRA_USER`
+- `JIRA_PASS`
+- `JIRA_DEF_PROJECT`
+- `JIRA_URL`
+
 Dependencies:
 - `python3`
+- `python-dateutil`
 - `jira`
 - `jsonpath-rw`
 

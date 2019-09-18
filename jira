@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
-# pip3 install jira jsonpath-rw
+# Setup:
+#
+# pip3 install jira jsonpath-rw python-dateutil
+# export JIRA_USER=leather-man
+# export JIRA_PASS=boss-in-this-jim
+# export JIRA_DEF_PROJECT=GYM
+# export JIRA_URL=https://jira.derp-dark-fantasies.com
 
 import os
 from jira import JIRA, JIRAError
