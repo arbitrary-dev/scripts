@@ -285,7 +285,7 @@ film() {
   if (( ! $# )); then
     cat <<EOF
 Convert film
-$(_usage) [options] <input> [output.mkv]
+$(_usage) [options] <input.xxx> [input-out.xxx]
 $(_param "-f|--from" "    00:00:00.000" "Starting time for video encoding")
 $(_param "-d|--duration" "00:00:00.000" "Total duration time for video encoding")
 
