@@ -1,7 +1,7 @@
 scripts
-======
+=======
 
-### bkrn
+### bkrn-\*
 
 Utilities for building kernel.
 
