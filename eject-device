@@ -5,38 +5,57 @@ if (( ! $# )); then
   exit
 fi
 
-main_dev=`mount | grep $1 | cut -d\  -f1`
+if ! which hdparm >/dev/null 2>&1; then
+  echo "'hdparm' is unavailable, but required to operate correctly."
+  exit
+fi
 
-[[ $1 = /dev/* ]] && ls $1 > /dev/null 2>&1 \
-&& main_dev=$1
-
+main_dev="`mount | grep $1 | head -1 | cut -d\  -f1`"
 if [[ -z "$main_dev" ]]; then
+  [[ "$1" = /dev/* ]] \
+  && main_dev="$1" \
+  || main_dev="/dev/$1"
+fi
+main_dev=${main_dev%%[0-9]*}
+if [[ -e "$main_dev" ]]; then
+  echo "$main_dev"
+else
   echo "$1 is not mounted."
   exit 1
 fi
 
-main_dev=${main_dev%%[0-9]*}
-devs=`mount | grep $main_dev | cut -d\  -f1`
 usb_name=`udevadm info --query=path -n $main_dev | cut -d/ -f6`
 usb=/sys/bus/usb/devices/$usb_name
 name=`cat $usb/product`
 
-printf "Setting autosuspend for USB $usb_name... "
-echo auto > $usb/power/control
-echo 0 > $usb/power/autosuspend_delay_ms
-echo OK
-
-for dev in $devs; do
-  printf "Unmounting $dev... "
-  umount $dev
-  if (( $? )); then
-    echo "Unable to unmount $dev"
-    exit 1
-  fi
+sudo sh -c "
+  printf 'Setting autosuspend for USB $usb_name... '
+  echo auto > $usb/power/control
+  echo 0 > $usb/power/autosuspend_delay_ms
   echo OK
+"
+
+_IFS=$IFS
+IFS=$'\n'
+mrecords=(`mount | grep $main_dev`)
+IFS=$_IFS
+
+for mr in "${mrecords[@]}"; do
+  dev="`echo "$mr" | cut -d\  -f1`"
+  dir="`echo "$mr" | cut -d\  -f3`"
+  sudo sh -c "
+    printf 'Unmounting $dir... '
+    if umount $dev; then
+      rm -d '$dir'
+      echo OK
+    else
+      echo 'Unable to unmount $dev'
+      exit 1
+    fi
+  " || exit 1
 done
 
-if ! hdparm -S1 $main_dev 2>&1 | grep -q failed; then
+if ! sudo hdparm -S1 $main_dev 2>&1 | grep -q SG_IO; then
   printf "Spinning down $main_dev... "
   sleep 6
   echo OK
@@ -44,8 +63,10 @@ else
   sleep 3
 fi
 
-printf "Unbinding USB $usb_name... "
-echo $usb_name > /sys/bus/usb/drivers/usb/unbind
-echo OK
+sudo sh -c "
+  printf 'Unbinding USB $usb_name... '
+  echo $usb_name > /sys/bus/usb/drivers/usb/unbind
+  echo OK
+"
 
 echo "'$name' should be safe to eject now."

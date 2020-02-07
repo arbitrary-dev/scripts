@@ -269,9 +269,29 @@ _video() {
 }
 
 concat() {
-  local files=`for f in $*; do echo "file '$PWD/$f'"; done`
-  printf $files
-  ffmpeg -f concat -safe 0 -i <(printf "$files") -c copy output.mp4
+  if (( ! $# )); then
+    cat <<EOF
+Concats videos from the list.
+$(_usage) <videos...> [output.mp4]
+EOF
+    return 1
+  fi
+  local files
+  local file
+  local output
+  for f in "$@"; do
+    file=$f
+    [[ "$file" != /* ]] && file="$PWD/$f"
+    if [ -f "$file" ]; then
+      files+="file '$file'\n"
+    elif [ "$f" = "${@:$#}" ]; then
+      output="$f"
+    fi
+  done
+  printf "$files"
+  output="${output:=output.mp4}"
+  echo "to $output"
+  ffmpeg -f concat -safe 0 -i <(printf "$files") -c copy $output
 }
 
 cut() {
@@ -641,7 +661,7 @@ EOF
 if (( ! $# )); then
   cat <<EOF
 Universal media convertor
-$(_usage) <ao|photos|covers|videos|player|film|webm>
+$(_usage) <ao|concat|covers|cut|gif|videos|photos|player|film|webm>
 EOF
 else
   CMD="$1"
