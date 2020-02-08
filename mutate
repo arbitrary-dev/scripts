@@ -12,23 +12,65 @@ from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 from mutagen.flac import FLAC
 
-def art(file):
-  tpe = type(file)
-  if tpe is MP4:
-    return f['©ART'][0]
-  elif tpe is FLAC:
-    return f['ARTIST'][0]
+f_num          = 0
+f_artist       = 1
+f_title        = 2
+f_album_artist = 3
+f_album        = 4
+f_year         = 5
 
-def nam(file):
-  tpe = type(file)
-  if tpe is MP4:
-    return f['©nam'][0]
-  elif tpe is FLAC:
-    return f['TITLE'][0]
+dataExtr = {
+  MP3:  [ 'TRCK'        , 'TPE1'   , 'TIT2'  , 'TPE2'        , 'TALB'  , 'TDRC' ]  ,
+  MP4:  [ 'trkn'        , '©art'   , '©nam'  , 'aART'        , '©alb'  , '©day' ]  ,
+  FLAC: [ 'TRACKNUMBER' , 'ARTIST' , 'TITLE' , 'ALBUMARTIST' , 'ALBUM' , 'DATE' ]
+}
+
+def get(file, field):
+  key = dataExtr[type(file)][field]
+  val = file.get(key)
+  return str(val[0]) if val else None
+
+def num(file):
+  """Track number"""
+  n = get(file, f_num)
+  return int(n) if n else None
+
+def art(file):
+  """Song artist"""
+  return get(file, f_artist)
+
+def tit(file):
+  """Song title"""
+  return get(file, f_title)
+
+def aar(files):
+  """Album artist"""
+  if files:
+    file = files[0]
+    # TODO infer album artist when not available
+    return get(file, f_album_artist)
+
+def alb(files):
+  """Album title"""
+  if files:
+    file = files[0]
+    # TODO infer album title from directory name
+    return get(file, f_album)
+
+def yer(files):
+  """Album year"""
+  if files:
+    file = files[0]
+    year = get(file, f_year)
+    return int(year) if year else None
 
 fs = [f for f in map(File, filter(isfile, listdir())) if f is not None]
-for f in fs:
-  #print(f.pprint())
-  print("[%s] %s - %s" % (type(f).__name__, art(f), nam(f)))
+if type(fs[0]) not in [MP3, MP4, FLAC]:
+  print("Unsupported media format:")
+  print(fs[0].pprint())
+elif fs:
+  print("%s - %s (%d)\n" % (aar(fs), alb(fs), yer(fs)))
+  for f in sorted(fs, key=num):
+    print("[%s] %02d %s - %s" % (type(f).__name__, num(f), art(f), tit(f)))
 
 # vim: et sw=2 ts=2 sts=2
