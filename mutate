@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+
+# Setup:
+#
+# pip3 install mutagen
+
+from os import listdir
+from os.path import isfile
+
+from mutagen import File
+from mutagen.mp3 import MP3
+from mutagen.mp4 import MP4
+from mutagen.flac import FLAC
+
+def art(file):
+  tpe = type(file)
+  if tpe is MP4:
+    return f['©ART'][0]
+  elif tpe is FLAC:
+    return f['ARTIST'][0]
+
+def nam(file):
+  tpe = type(file)
+  if tpe is MP4:
+    return f['©nam'][0]
+  elif tpe is FLAC:
+    return f['TITLE'][0]
+
+fs = [f for f in map(File, filter(isfile, listdir())) if f is not None]
+for f in fs:
+  #print(f.pprint())
+  print("[%s] %s - %s" % (type(f).__name__, art(f), nam(f)))
+
+# vim: et sw=2 ts=2 sts=2

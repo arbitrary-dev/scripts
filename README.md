@@ -70,3 +70,11 @@ Dependencies:
 - `app-crypt/gnupg`
 - `sys-apps/coreutils`
 - `x11-misc/xclip` is optional
+
+### mutate
+
+Sorts up that messed musical collection at last.
+
+Dependencies:
+- `python3`
+- `mutagen`
