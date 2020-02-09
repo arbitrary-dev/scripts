@@ -12,23 +12,67 @@ from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 from mutagen.flac import FLAC
 
-f_num          = 0
-f_artist       = 1
-f_title        = 2
-f_album_artist = 3
-f_album        = 4
-f_year         = 5
+import pandas as pd
+from functools import partial
+import re
+import readline
 
+f_num          = 'num'
+f_artist       = 'artist'
+f_title        = 'title'
+f_album_artist = 'album_artist'
+f_album        = 'album'
+f_year         = 'year'
+f_comment      = 'comment'
+# TODO genre
+# TODO cd
+
+dataCols = [f_num, f_artist, f_title, f_album_artist, f_album, f_year, f_comment]
 dataExtr = {
-  MP3:  [ 'TRCK'        , 'TPE1'   , 'TIT2'  , 'TPE2'        , 'TALB'  , 'TDRC' ]  ,
-  MP4:  [ 'trkn'        , '©art'   , '©nam'  , 'aART'        , '©alb'  , '©day' ]  ,
-  FLAC: [ 'TRACKNUMBER' , 'ARTIST' , 'TITLE' , 'ALBUMARTIST' , 'ALBUM' , 'DATE' ]
+  MP3:  [ 'TRCK'        , 'TPE1'   , 'TIT2'  , 'TPE2'        , 'TALB'  , 'TDRC' , 'COMM' ],
+  MP4:  [ 'trkn'        , '©art'   , '©nam'  , 'aART'        , '©alb'  , '©day' , '©cmt' ],
+  FLAC: [ 'TRACKNUMBER' , 'ARTIST' , 'TITLE' , 'ALBUMARTIST' , 'ALBUM' , 'DATE' , 'DESCRIPTION' ]
 }
 
-def get(file, field):
-  key = dataExtr[type(file)][field]
+def get_raw(file, col):
+  tpe = type(file)
+  key = dataExtr[tpe][dataCols.index(col)]
   val = file.get(key)
-  return str(val[0]) if val else None
+  if not val and tpe == MP3 and col == 'comment':
+    val = file.tags.getall(key)
+    val = val[0].text[0] if val and val[0].text else None
+  return str(val).strip() if val else None
+
+def post_process(val, file, col):
+  if col == f_comment:
+    # Skip first 2 lines
+    return '\n'.join(val.splitlines()[2:])
+  elif col == f_artist:
+    # Try to get artist from title
+    title = get_raw(file, f_title)
+    arr = title.split(" - ")
+    return arr[0] if len(arr) == 2 else val
+  elif col == f_title:
+    # TODO Apply the Title Case
+    # Remove artist
+    return val.split(" - ")[-1]
+  elif col == f_album:
+    # Remove year
+    return re.sub("\(?\d{4}\)?", "", val)
+  return val
+
+def get(file, col):
+  val = get_raw(file, col)
+  return post_process(val, file, col) if val else None
+
+def input_with_prefill(prompt, text):
+  def hook():
+    readline.insert_text(text)
+    readline.redisplay()
+  readline.set_pre_input_hook(hook)
+  result = input(prompt)
+  readline.set_pre_input_hook()
+  return result
 
 def num(file):
   """Track number"""
@@ -69,8 +113,32 @@ if type(fs[0]) not in [MP3, MP4, FLAC]:
   print("Unsupported media format:")
   print(fs[0].pprint())
 elif fs:
-  print("%s - %s (%d)\n" % (aar(fs), alb(fs), yer(fs)))
-  for f in sorted(fs, key=num):
-    print("[%s] %02d %s - %s" % (type(f).__name__, num(f), art(f), tit(f)))
+  #print("%s - %s (%d)\n" % (aar(fs), alb(fs), yer(fs)))
+  #for f in sorted(fs, key=num):
+  #  print("[%s] %02d %s - %s" % (type(f).__name__, num(f), art(f), tit(f)))
+
+  def row(file):
+    extr = partial(get, file)
+    return map(extr, dataCols)
+
+  df = pd.DataFrame(
+    data = map(row, fs),
+    columns = dataCols
+  ).astype({
+    f_num:  'int32',
+    f_year: 'int32'
+  })
+  df.set_index(f_num, inplace=True)
+  df.sort_index(inplace=True)
+
+  print(df)
+
+  print("\nAlbum artist candidates:")
+  artists = df[f_artist].value_counts(normalize=True) * 100
+  print(artists.map(int).map("{}%".format))
+  #album_artist = input_with_prefill("Which one? ", artists.idxmax())
+  #print("%s!" % album_artist)
+
+  # TODO save
 
 # vim: et sw=2 ts=2 sts=2
