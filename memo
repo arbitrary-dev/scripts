@@ -16,6 +16,13 @@ check_shred() {
   fi
 }
 
+check_tmpdir() {
+  if [[ ! -w "$TMPDIR" ]]; then
+    echo "No writable TMPDIR!"
+    exit 1
+  fi
+}
+
 join_by() { local IFS="$1"; shift; echo "$*"; }
 
 _copy() {
@@ -59,6 +66,7 @@ m() {
 me() {
   check_memo
   check_shred
+  check_tmpdir
 
   local temp=$(
     cd $TMPDIR
