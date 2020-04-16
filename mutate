@@ -4,8 +4,8 @@
 #
 # pip3 install mutagen
 
-from os import listdir
-from os.path import isfile
+from os import listdir, getcwd
+from os.path import isfile, basename, splitext
 
 from mutagen import File
 from mutagen.mp3 import MP3
@@ -16,6 +16,11 @@ import pandas as pd
 from functools import partial
 import re
 import readline
+import sys
+from shutil import get_terminal_size
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import WordCompleter
 
 f_num          = 'num'
 f_artist       = 'artist'
@@ -26,44 +31,78 @@ f_year         = 'year'
 f_comment      = 'comment'
 # TODO genre
 # TODO cd
+f_file         = 'file'
 
-dataCols = [f_num, f_artist, f_title, f_album_artist, f_album, f_year, f_comment]
+dataCols = [ f_num         , f_artist , f_title , f_album_artist , f_album , f_year , f_comment     , f_file ]
 dataExtr = {
-  MP3:  [ 'TRCK'        , 'TPE1'   , 'TIT2'  , 'TPE2'        , 'TALB'  , 'TDRC' , 'COMM' ],
-  MP4:  [ 'trkn'        , '©art'   , '©nam'  , 'aART'        , '©alb'  , '©day' , '©cmt' ],
-  FLAC: [ 'TRACKNUMBER' , 'ARTIST' , 'TITLE' , 'ALBUMARTIST' , 'ALBUM' , 'DATE' , 'DESCRIPTION' ]
+  MP3:     [ 'TRCK'        , 'TPE1'   , 'TIT2'  , 'TPE2'         , 'TALB'  , 'TDRC' , 'COMM'        ],
+  MP4:     [ 'trkn'        , '©art'   , '©nam'  , 'aART'         , '©alb'  , '©day' , '©cmt'        ],
+  FLAC:    [ 'TRACKNUMBER' , 'ARTIST' , 'TITLE' , 'ALBUMARTIST'  , 'ALBUM' , 'DATE' , 'DESCRIPTION' ]
 }
+
+cmd_print = "print"
+cmd_remove = "remove"
+cmd_rename = "rename"
+cmd_write  = "write"
+cmd_quit   = "quit"
+
+cmds = WordCompleter([cmd_remove, cmd_rename, cmd_write, cmd_quit])
+s = PromptSession(completer=cmds)
+
+def filename(filepath):
+  return splitext(basename(filepath))[0]
 
 def get_raw(file, col):
   tpe = type(file)
   key = dataExtr[tpe][dataCols.index(col)]
   val = file.get(key)
-  if not val and tpe == MP3 and col == 'comment':
+  if not val and tpe == MP3 and col == f_comment:
     val = file.tags.getall(key)
     val = val[0].text[0] if val and val[0].text else None
   return str(val).strip() if val else None
 
-def post_process(val, file, col):
+def artist_title(s):
+  s = s.replace('_', ' ') if s and s.count('_') and s.count('-') and not s.count(' ') else s
+  arr = s.split(" - ") if s else None
+  return arr if arr and len(arr) == 2 else (None, None)
+
+def post_process(val, col, file, filepath):
   if col == f_comment:
     # Skip first 2 lines
-    return '\n'.join(val.splitlines()[2:])
+    #val = '\n'.join(val.splitlines()[2:])
+    None
   elif col == f_artist:
-    # Try to get artist from title
-    title = get_raw(file, f_title)
-    arr = title.split(" - ")
-    return arr[0] if len(arr) == 2 else val
+    arr = [
+      lambda: val,
+      lambda: artist_title(get_raw(file, f_title))[0],
+      lambda: artist_title(filename(filepath))[0]
+    ]
+    val = next(filter(None, map(lambda x: x(), arr)))
   elif col == f_title:
     # TODO Apply the Title Case
+    val = val if val else artist_title(filename(filepath))[1]
     # Remove artist
-    return val.split(" - ")[-1]
-  elif col == f_album:
-    # Remove year
-    return re.sub("\(?\d{4}\)?", "", val)
+    val = val.split(" - ")[-1] if val else None
+  elif col == f_album and val:
+    # Remove date
+    val = re.sub(r"\(?(\d{4}-..-..|\d{4})\)?", "", val)
+  elif col == f_num and val:
+    val = re.sub(r"(\d+)/?.*", r"\1", val)
+    val = int(val) if val else None
+  elif col == f_year and val:
+    val = re.sub(r".*(\d{4}).*", r"\1", val)
+    val = int(val) if val else None
   return val
 
-def get(file, col):
-  val = get_raw(file, col)
-  return post_process(val, file, col) if val else None
+def get(filepath, file, col):
+  if col == f_file:
+    return filepath
+  try:
+    val = get_raw(file, col)
+    val = post_process(val, col, file, filepath)
+    return val
+  except:
+    print("Error while processing tag '%s' for %s: %s" % (col, filepath, sys.exc_info()[1]))
 
 def input_with_prefill(prompt, text):
   def hook():
@@ -108,37 +147,82 @@ def yer(files):
     year = get(file, f_year)
     return int(year) if year else None
 
-fs = [f for f in map(File, filter(isfile, listdir())) if f is not None]
-if type(fs[0]) not in [MP3, MP4, FLAC]:
-  print("Unsupported media format:")
-  print(fs[0].pprint())
-elif fs:
+def remove(what, df):
+  what = [w for token in what for w in token.split(',')]
+  idxs = []
+  cols = []
+  for token in what:
+    if token.isdigit():
+      idxs.append(int(token))
+    elif '-' in token:
+      t = token.split('-')
+      idxs += range(int(t[0]), int(t[1]) + 1)
+    else:
+      cols.append(token)
+  df.drop(index=idxs, columns=cols, inplace=True)
+
+fs = list(filter(isfile, listdir()))
+if not fs:
+  print("Nothing interesting at", getcwd())
+else:
   #print("%s - %s (%d)\n" % (aar(fs), alb(fs), yer(fs)))
   #for f in sorted(fs, key=num):
   #  print("[%s] %02d %s - %s" % (type(f).__name__, num(f), art(f), tit(f)))
 
-  def row(file):
-    extr = partial(get, file)
+  def row(filepath):
+    file = File(filepath)
+    if not file or type(file) not in [MP3, MP4, FLAC]:
+      print("Unsupported media format:", filepath)
+      return None
+    extr = partial(get, filepath, file)
     return map(extr, dataCols)
 
   df = pd.DataFrame(
-    data = map(row, fs),
+    data = filter(None, map(row, fs)),
     columns = dataCols
   ).astype({
-    f_num:  'int32',
-    f_year: 'int32'
+    f_num:  'Int32',
+    f_year: 'Int32'
   })
-  df.set_index(f_num, inplace=True)
-  df.sort_index(inplace=True)
+  df.sort_values(f_num, inplace=True)
+  df.reset_index(drop=True, inplace=True)
 
-  print(df)
+  pd.set_option('display.max_columns', None)
+  pd.set_option('display.width', get_terminal_size().columns)
+  pd.set_option('display.max_colwidth', 32)
 
-  print("\nAlbum artist candidates:")
-  artists = df[f_artist].value_counts(normalize=True) * 100
-  print(artists.map(int).map("{}%".format))
+  #print("\nAlbum artist candidates:")
+  #artists = df[f_artist].value_counts(normalize=True) * 100
+  #print(artists.map(int).map("{}%".format))
+
   #album_artist = input_with_prefill("Which one? ", artists.idxmax())
   #print("%s!" % album_artist)
 
+  print()
+  print(df)
+
   # TODO save
+
+  def handle(cmd):
+    if cmd == cmd_quit:
+      sys.exit(0)
+    if cmd.startswith(cmd_remove):
+      what = cmd.split(' ')[1:]
+      remove(what, df)
+    elif cmd == cmd_print:
+      print()
+      print(df)
+    else:
+      print()
+      cmd = s.prompt("%s what? " % cmd)
+      handle(cmd)
+
+  while True:
+    try:
+      print()
+      cmd = s.prompt("What's next? ")
+      handle(cmd)
+    except (EOFError, KeyboardInterrupt):
+      sys.exit(1)
 
 # vim: et sw=2 ts=2 sts=2

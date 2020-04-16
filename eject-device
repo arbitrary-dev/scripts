@@ -18,7 +18,7 @@ if [[ -z "$main_dev" ]]; then
 fi
 main_dev=${main_dev%%[0-9]*}
 if [[ -e "$main_dev" ]]; then
-  echo "$main_dev"
+  echo "Will eject $main_dev"
 else
   echo "$1 is not mounted."
   exit 1

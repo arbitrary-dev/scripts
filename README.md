@@ -78,3 +78,4 @@ Sorts up that messed musical collection at last.
 Dependencies:
 - `python3`
 - `mutagen`
+- `prompt_toolkit`
