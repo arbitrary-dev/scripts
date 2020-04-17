@@ -21,6 +21,7 @@ from shutil import get_terminal_size
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
 
 f_num          = 'num'
 f_artist       = 'artist'
@@ -29,11 +30,13 @@ f_album_artist = 'album_artist'
 f_album        = 'album'
 f_year         = 'year'
 f_comment      = 'comment'
+f_filename     = 'filename'
 # TODO genre
 # TODO cd
-f_file         = 'file'
 
-dataCols = [ f_num         , f_artist , f_title , f_album_artist , f_album , f_year , f_comment     , f_file ]
+f_file = 'file'
+
+dataCols = [ f_num         , f_artist , f_title , f_album_artist , f_album , f_year , f_comment, f_filename ]
 dataExtr = {
   MP3:     [ 'TRCK'        , 'TPE1'   , 'TIT2'  , 'TPE2'         , 'TALB'  , 'TDRC' , 'COMM'        ],
   MP4:     [ 'trkn'        , '©art'   , '©nam'  , 'aART'         , '©alb'  , '©day' , '©cmt'        ],
@@ -46,8 +49,14 @@ cmd_rename = "rename"
 cmd_write  = "write"
 cmd_quit   = "quit"
 
-cmds = WordCompleter([cmd_remove, cmd_rename, cmd_write, cmd_quit])
-s = PromptSession(completer=cmds)
+cmds = [cmd_remove, cmd_rename, cmd_write, cmd_quit]
+class CommandSuggest(AutoSuggest):
+  def get_suggestion(this, buffer, document):
+    if document.find_backwards(cmd_remove):
+      return Suggestion('0 1-3 4,5 album_artist comment')
+cmdsCompleter = WordCompleter(cmds)
+cmdsSuggest = CommandSuggest()
+s = PromptSession(completer=cmdsCompleter, auto_suggest=cmdsSuggest)
 
 def filename(filepath):
   return splitext(basename(filepath))[0]
@@ -95,8 +104,8 @@ def post_process(val, col, file, filepath):
   return val
 
 def get(filepath, file, col):
-  if col == f_file:
-    return filepath
+  if col == f_filename:
+    return filename(filepath)
   try:
     val = get_raw(file, col)
     val = post_process(val, col, file, filepath)
@@ -171,15 +180,17 @@ else:
 
   def row(filepath):
     file = File(filepath)
-    if not file or type(file) not in [MP3, MP4, FLAC]:
-      print("Unsupported media format:", filepath)
+    if file and type(file) in [MP3, MP4, FLAC]:
+      print("Loading:", filepath)
+    else:
+      print("Skipped:", filepath)
       return None
     extr = partial(get, filepath, file)
-    return map(extr, dataCols)
+    return list(map(extr, dataCols)) + [filepath]
 
   df = pd.DataFrame(
     data = filter(None, map(row, fs)),
-    columns = dataCols
+    columns = dataCols + [f_file]
   ).astype({
     f_num:  'Int32',
     f_year: 'Int32'
@@ -198,8 +209,11 @@ else:
   #album_artist = input_with_prefill("Which one? ", artists.idxmax())
   #print("%s!" % album_artist)
 
-  print()
-  print(df)
+  def printData():
+    print()
+    print(df[dataCols])
+
+  printData()
 
   # TODO save
 
@@ -210,9 +224,8 @@ else:
       what = cmd.split(' ')[1:]
       remove(what, df)
     elif cmd == cmd_print:
-      print()
-      print(df)
-    else:
+      printData()
+    elif cmd:
       print()
       cmd = s.prompt("%s what? " % cmd)
       handle(cmd)
