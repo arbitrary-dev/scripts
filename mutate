@@ -19,7 +19,7 @@ import readline
 import sys
 from shutil import get_terminal_size
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, prompt
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
 from prompt_toolkit.shortcuts import clear
@@ -47,11 +47,11 @@ dataExtr = {
 cmd_print  = "print"
 cmd_tags   = "tags"
 cmd_remove = "remove"
-cmd_rename = "rename"
+cmd_edit   = "edit"
 cmd_write  = "write"
 cmd_quit   = "quit"
 
-cmds = [cmd_print, cmd_tags, cmd_remove, cmd_rename, cmd_write, cmd_quit]
+cmds = [cmd_print, cmd_tags, cmd_remove, cmd_edit, cmd_write, cmd_quit]
 class CommandSuggest(AutoSuggest):
   def get_suggestion(this, buffer, document):
     if document.find_backwards(cmd_remove):
@@ -174,6 +174,19 @@ def remove(what, df):
       cols.append(token)
   df.drop(index=idxs, columns=cols, inplace=True)
 
+def edit(df, idx, col):
+  if idx == None:
+    if col == f_filename:
+      val = prompt("New template for 'filename': ")
+      # TODO %01d for nums of total <10
+      df[f_filename] = df.apply(lambda r: val.replace('%n', '%02d' % (r[f_num])).replace('%a', r[f_artist]).replace('%t', r[f_title]), axis=1)
+    else:
+      val = prompt("New values for '%s': " % (col), default=df[col].mode()[0])
+      df[col] = val
+  else:
+    val = prompt("New value for '%s': " % (col), default=df.loc[idx, col])
+    df.loc[idx, col] = val
+
 fs = list(filter(isfile, listdir()))
 if not fs:
   print("Nothing interesting at", getcwd())
@@ -227,6 +240,15 @@ else:
     if cmd.startswith(cmd_remove):
       what = cmd.split(' ')[1:]
       remove(what, df)
+    elif cmd.startswith(cmd_edit):
+      idx = None
+      col = None
+      for i in cmd.split(' ')[1:]:
+        if i.isdigit():
+          idx = int(i)
+        elif i in df.columns.drop('file'):
+          col = i
+      edit(df, idx, col)
     elif cmd == cmd_print:
       printData()
     elif cmd.startswith(cmd_tags):
