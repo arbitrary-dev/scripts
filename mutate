@@ -94,8 +94,14 @@ def post_process(val, col, file, filepath):
   elif col == f_title:
     # TODO Apply the Title Case
     val = val if val else artist_title(filename(filepath))[1]
-    # Remove artist
-    val = val.split(" - ")[-1] if val else None
+    if val:
+      # Remove artist
+      val = val.split(" - ")[-1]
+      val = val.replace('-', ' ')
+      # Lower case helper words
+      arr = val.split(' ')
+      lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'the']
+      val = ' '.join([arr[0]] + [i.lower() if i.lower() in lower else i for i in arr[1:]])
   elif col == f_album and val:
     # Remove date
     val = re.sub(r"\(?(\d{4}-..-..|\d{4})\)?", "", val)
