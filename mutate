@@ -4,13 +4,15 @@
 #
 # pip3 install mutagen
 
-from os import listdir, getcwd
-from os.path import isfile, basename, splitext
+from os import listdir, getcwd, rename
+from os.path import isfile, basename, dirname, splitext
 
-from mutagen import File
+from mutagen import File, Metadata
 from mutagen.mp3 import MP3
-from mutagen.mp4 import MP4
+from mutagen.id3 import ID3, ID3TimeStamp
+from mutagen.mp4 import MP4, MP4Tags
 from mutagen.flac import FLAC
+from mutagen._vorbis import VCommentDict
 
 import pandas as pd
 from functools import partial
@@ -18,6 +20,7 @@ import re
 import readline
 import sys
 from shutil import get_terminal_size
+from importlib import import_module
 
 from prompt_toolkit import PromptSession, prompt
 from prompt_toolkit.completion import WordCompleter
@@ -52,13 +55,76 @@ cmd_write  = "write"
 cmd_quit   = "quit"
 
 cmds = [cmd_print, cmd_tags, cmd_remove, cmd_edit, cmd_write, cmd_quit]
+
+# TODO suggest column names on edit/remove
 class CommandSuggest(AutoSuggest):
   def get_suggestion(this, buffer, document):
     if document.find_backwards(cmd_remove):
       return Suggestion('0 1-3 4,5 album_artist comment')
+# TODO complete column names after edit/remove
 cmdsCompleter = WordCompleter(cmds)
 cmdsSuggest = CommandSuggest()
 s = PromptSession(completer=cmdsCompleter, auto_suggest=cmdsSuggest)
+
+def write(df):
+  cols = df.columns.drop([f_file, f_filename])
+
+  def writeOne(row):
+    filepath = row[f_file]
+    ext = splitext(filepath)[1].lower()
+    f = File(filepath)
+    print("\nBEFORE:\n" + f.pprint())
+    ft = type(f)
+    tags = None
+    if ft == MP3:
+      tags = ID3()
+    elif ft == MP4:
+      # TODO check MP4
+      tags = MP4Tags()
+    elif ft == FLAC:
+      # TODO check FLAC
+      tags = VCommentDict()
+    de = dataExtr[ft]
+
+    def set_tag(tag, val):
+      if ft == MP3:
+        Tag = getattr(import_module("mutagen.id3"), tag)
+        if c == f_year:
+          val = [ID3TimeStamp(str(val))]
+        else:
+          val = [val]
+        tags.setall(tag, [Tag(3, text=val)])
+      else:
+        tags[tag] = val
+
+    abort = False
+    for c in cols:
+      tag = de[dataCols.index(c)]
+      val = row[c]
+      if not val:
+        continue
+      try:
+        set_tag(tag, val)
+      except:
+        print("Error while setting tag '%s' to '%s': %s" % (tag, val, sys.exc_info()[1]))
+        abort = True
+
+    if not abort:
+      f.tags = tags
+      print("\nAFTER:\n" + f.pprint())
+      f.save()
+
+      fname = row[f_filename]
+      if filename(filepath) != fname:
+        d = dirname(filepath)
+        d = (d + '/') if d else ""
+        new_filepath = d + fname + ext
+        rename(filepath, new_filepath)
+        print("\nRENAMED: %s -> %s" % (filepath, new_filepath))
+
+  # TODO write only changed files
+  for _, row in df.iterrows():
+    writeOne(row)
 
 def filename(filepath):
   return splitext(basename(filepath))[0]
@@ -203,10 +269,11 @@ else:
 
   def row(filepath):
     file = File(filepath)
-    if file and type(file) in [MP3, MP4, FLAC]:
-      print("Loading:", filepath)
+    tpe = type(file)
+    if file and tpe in [MP3, MP4, FLAC]:
+      print("Loading %s: %s" % (tpe.__name__, filepath))
     else:
-      print("Skipped:", filepath)
+      print("Skipped %s: %s" % (tpe.__name__, filepath))
       return None
     extr = partial(get, filepath, file)
     return list(map(extr, dataCols)) + [filepath]
@@ -246,6 +313,9 @@ else:
     if cmd.startswith(cmd_remove):
       what = cmd.split(' ')[1:]
       remove(what, df)
+
+      clear()
+      printData()
     elif cmd.startswith(cmd_edit):
       idx = None
       col = None
@@ -255,12 +325,19 @@ else:
         elif i in df.columns.drop('file'):
           col = i
       edit(df, idx, col)
+
+      clear()
+      printData()
     elif cmd == cmd_print:
+      clear()
       printData()
     elif cmd.startswith(cmd_tags):
       idx = int(cmd.split(' ')[1])
       tags = File(df.at[idx, f_file]).pprint()
       print(tags)
+    elif cmd == cmd_write:
+      write(df)
+      print("Done!")
     elif cmd:
       print()
       cmd = s.prompt("%s what? " % cmd)
@@ -268,8 +345,6 @@ else:
 
   while True:
     try:
-      clear()
-      printData()
       print()
       cmd = s.prompt("What's next? ")
       handle(cmd)
