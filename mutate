@@ -22,6 +22,7 @@ from shutil import get_terminal_size
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
+from prompt_toolkit.shortcuts import clear
 
 f_num          = 'num'
 f_artist       = 'artist'
@@ -69,6 +70,8 @@ def get_raw(file, col):
   if not val and tpe == MP3 and col == f_comment:
     val = file.tags.getall(key)
     val = val[0].text[0] if val and val[0].text else None
+  elif val and tpe == MP4 and isinstance(val, list):
+    val = val[0]
   return str(val).strip() if val else None
 
 def artist_title(s):
@@ -212,7 +215,7 @@ else:
 
   def printData():
     print()
-    print(df[dataCols])
+    print(df[df.columns.drop('file')])
 
   printData()
 
@@ -237,6 +240,8 @@ else:
 
   while True:
     try:
+      clear()
+      printData()
       print()
       cmd = s.prompt("What's next? ")
       handle(cmd)

@@ -328,6 +328,8 @@ luma_spatial   = 4
 chroma_spatial = 3
 luma_tmp       = 6
 chroma_tmp     = 4.5")
+$(_param "-ds|--deshake")
+$(_param "-an|--audio-normalize")
 
 $(_param -eq "contrast:brightness:gamma" \
 "\nApply eq flter.
@@ -359,6 +361,9 @@ EOF
   -b|--bitrate)
     BV="-b:v $2"
     shift ;;
+  -an|--audio-normalize)
+    [ -n "$AF" ] && AF+=,
+    AF+="dynaudnorm=f=75:g=25:n=0:p=0.58" ;;
   -vf)
     [ -n "$VF" ] && VF+=,
     VF+=$2
@@ -377,6 +382,9 @@ EOF
   -di|--deinterlace)
     [ -n "$VF" ] && VF+=,
     VF+=yadif ;;
+  -ds|--deshake)
+    [ -n "$VF" ] && VF+=,
+    VF+=deshake ;;
   -cw)
     [ -n "$VF" ] && VF+=,
     VF+=transpose=1 ;;
@@ -412,12 +420,12 @@ EOF
   shift
   done
 
-  [[ -n $VF ]] && VF="-vf $VF"
-
   local ARGS="\
     $FROM -i \"$1\" $DUR \
     -y -hide_banner \
-    -c:v libx264 $BV -preset:v $preset -x264-params threads=$threads $VF \
+    -c:v libx264 $BV -preset:v $preset -x264-params threads=$threads \
+    ${VF:+ -vf $VF} \
+    ${AF:+ -af $AF} \
     $scopy \
     -c:a libfdk_aac -ar 44100 -vbr 3 \
     $LOG"
