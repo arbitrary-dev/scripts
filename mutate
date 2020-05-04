@@ -45,7 +45,7 @@ f_changed  = 'changed'
 dataCols = [ f_num         , f_artist , f_title , f_album_artist , f_album , f_year , f_comment     , f_genre , f_disc       ]
 dataExtr = {
   MP3:     [ 'TRCK'        , 'TPE1'   , 'TIT2'  , 'TPE2'         , 'TALB'  , 'TDRC' , 'COMM'        , 'TCON'  , 'TPOS'       ],
-  MP4:     [ 'trkn'        , '©art'   , '©nam'  , 'aART'         , '©alb'  , '©day' , '©cmt'        , '©gen'  , 'disk'       ],
+  MP4:     [ 'trkn'        , '©ART'   , '©nam'  , 'aART'         , '©alb'  , '©day' , '©cmt'        , '©gen'  , 'disk'       ],
   FLAC:    [ 'TRACKNUMBER' , 'ARTIST' , 'TITLE' , 'ALBUMARTIST'  , 'ALBUM' , 'DATE' , 'DESCRIPTION' , 'GENRE' , 'DISCNUMBER' ]
 }
 
@@ -135,11 +135,16 @@ def get_raw(file, col):
   tpe = type(file)
   key = dataExtr[tpe][dataCols.index(col)]
   val = file.get(key)
+  # print(col, key, val)
   if not val and tpe == MP3 and col == f_comment:
     val = file.tags.getall(key)
     val = val[0].text[0] if val and val[0].text else None
-  elif val and tpe == MP4 and isinstance(val, list):
-    val = val[0]
+  elif val:
+    if tpe == MP4:
+      if isinstance(val, list):
+        val = val[0]
+      if col == f_num and isinstance(val, tuple):
+        val = val[0]
   return str(val).strip() if val else None
 
 def artist_title(s):
@@ -232,7 +237,7 @@ else:
     if file and tpe in [MP3, MP4, FLAC]:
       print("Loading %s: %s" % (tpe.__name__, filepath))
     else:
-      print("Skipped %s: %s" % (tpe.__name__, filepath))
+      print("Skipped: %s" % (filepath))
       return None
     extr = partial(get, filepath, file)
     return list(map(extr, dataCols)) + [filename(filepath), filepath, False]
