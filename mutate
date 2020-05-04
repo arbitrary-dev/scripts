@@ -2,7 +2,9 @@
 
 # Setup:
 #
-# pip3 install mutagen
+# pip install mutagen
+# pip install pandas
+# pip install prompt_toolkit
 
 from os import listdir, getcwd, rename
 from os.path import isfile, basename, dirname, splitext
@@ -17,7 +19,6 @@ from mutagen._vorbis import VCommentDict
 import pandas as pd
 from functools import partial
 import re
-import readline
 import sys
 from shutil import get_terminal_size
 from importlib import import_module
@@ -58,7 +59,7 @@ cmds = [cmd_print, cmd_tags, cmd_remove, cmd_edit, cmd_write, cmd_quit]
 
 # TODO suggest column names on edit/remove
 class CommandSuggest(AutoSuggest):
-  def get_suggestion(this, buffer, document):
+  def get_suggestion(self, buffer, document):
     if document.find_backwards(cmd_remove):
       return Suggestion('0 1-3 4,5 album_artist comment')
 # TODO complete column names after edit/remove
