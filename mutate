@@ -189,49 +189,6 @@ def get(filepath, file, col):
   except:
     print("Error while processing tag '%s' for %s: %s" % (col, filepath, sys.exc_info()[1]))
 
-def input_with_prefill(prompt, text):
-  def hook():
-    readline.insert_text(text)
-    readline.redisplay()
-  readline.set_pre_input_hook(hook)
-  result = input(prompt)
-  readline.set_pre_input_hook()
-  return result
-
-def num(file):
-  """Track number"""
-  n = get(file, f_num)
-  return int(n) if n else None
-
-def art(file):
-  """Song artist"""
-  return get(file, f_artist)
-
-def tit(file):
-  """Song title"""
-  return get(file, f_title)
-
-def aar(files):
-  """Album artist"""
-  if files:
-    file = files[0]
-    # TODO infer album artist when not available
-    return get(file, f_album_artist)
-
-def alb(files):
-  """Album title"""
-  if files:
-    file = files[0]
-    # TODO infer album title from directory name
-    return get(file, f_album)
-
-def yer(files):
-  """Album year"""
-  if files:
-    file = files[0]
-    year = get(file, f_year)
-    return int(year) if year else None
-
 def remove(what, df):
   what = [w for token in what for w in token.split(',')]
   idxs = []
@@ -263,10 +220,6 @@ fs = list(filter(isfile, listdir()))
 if not fs:
   print("Nothing interesting at", getcwd())
 else:
-  #print("%s - %s (%d)\n" % (aar(fs), alb(fs), yer(fs)))
-  #for f in sorted(fs, key=num):
-  #  print("[%s] %02d %s - %s" % (type(f).__name__, num(f), art(f), tit(f)))
-
   def row(filepath):
     file = File(filepath)
     tpe = type(file)
@@ -291,13 +244,6 @@ else:
   pd.set_option('display.max_columns', None)
   pd.set_option('display.width', get_terminal_size().columns)
   pd.set_option('display.max_colwidth', 32)
-
-  #print("\nAlbum artist candidates:")
-  #artists = df[f_artist].value_counts(normalize=True) * 100
-  #print(artists.map(int).map("{}%".format))
-
-  #album_artist = input_with_prefill("Which one? ", artists.idxmax())
-  #print("%s!" % album_artist)
 
   def printData():
     print()
