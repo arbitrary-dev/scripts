@@ -57,34 +57,44 @@ EOF
   ffmpeg -i "$1" -hide_banner -c:v copy -c:a libfdk_aac -ac 2 -ar 44100 -vbr 3 "$2"
 }
 
-player() {
+music() {
   if (( ! $# )); then
     cat <<EOF
-Convert tracks from list (aac, 2ch, 44.1 kHz, vbr 4)
-$(_usage) <list>
+Convert tracks from list (libfdk_aac, 2ch, 44.1 kHz)
+$(_usage) [vbr=4] <list>
 EOF
     return 1
   fi
 
   while (( $# )); do
-    [[ $(_mimetype "$1") = audio* ]] && LIST+="\n$1"
+    if [[ "$1" =~ ^[1-5]$ ]]; then
+      export vbr="$1"
+    elif [[ $(_mimetype "$1") = audio* ]]; then
+      LIST+="\n$1"
+    fi
     shift
   done
 
-  export -f player_1
-  printf "$LIST" | parallel --will-cite player_1
-  _log "\nTracks converted."
+  export -f _music_1
+  printf "$LIST" | parallel --will-cite _music_1
+  _log "\nDone!"
 }
 
-player_1() {
+_music_1() {
   [[ -z $1 ]] && return
 
-  ffmpeg -i "$1" -hide_banner -v quiet -c:a libfdk_aac -ac 2 -ar 44100 -vbr 4 "${1%.*}.m4a"
+  local out="${1%.*}.m4a"
+  ffmpeg -i "$1" \
+    -hide_banner -v quiet \
+    -map 0 -map -0:v \
+    -c:a libfdk_aac -ac 2 -ar 44100 -vbr ${vbr:-4} \
+    "$out"
 
-  if [[ $? = 0 ]]; then
-    [[ $1 != ${1%.*}.m4a ]] && rm "$1"
+  if (( ! $? )) && [[ -f "$out" ]]; then
+    [[ "$1" != "$out" ]] && rm "$1"
     printf .
   else
+    [[ "$1" != "$out" ]] && rm -f "$out"
     printf e
   fi
 }
