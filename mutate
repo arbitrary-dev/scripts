@@ -63,10 +63,9 @@ class CommandSuggest(AutoSuggest):
   def get_suggestion(self, buffer, document):
     if document.find_backwards(cmd_remove):
       return Suggestion('0 1-3 4,5 album_artist comment')
+
 # TODO complete column names after edit/remove
-cmdsCompleter = WordCompleter(cmds)
-cmdsSuggest = CommandSuggest()
-s = PromptSession(completer=cmdsCompleter, auto_suggest=cmdsSuggest)
+s = PromptSession(completer=WordCompleter(cmds), auto_suggest=CommandSuggest())
 
 def write(df):
   cols = data_columns(df)
