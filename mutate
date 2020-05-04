@@ -206,6 +206,12 @@ def remove(what, df):
       idxs += range(int(t[0]), int(t[1]) + 1)
     else:
       cols.append(token)
+
+  for c in cols:
+    query = df[c].notnull()
+    if idxs:
+      query &= idxs
+    df.loc[query, f_changed] = True
   df.drop(index=idxs, columns=cols, inplace=True)
 
 def edit(df, idx, col):
@@ -213,16 +219,19 @@ def edit(df, idx, col):
     if col == f_filename:
       val = prompt("New template for 'filename': ")
       # TODO %01d for nums of total <10
-      df[f_filename] = df.apply(lambda r: val.replace('%n', '%02d' % (r[f_num])).replace('%a', r[f_artist]).replace('%t', r[f_title]), axis=1)
-      df[f_changed] = True
+      updated = df.apply(lambda r: val.replace('%n', '%02d' % (r[f_num])).replace('%a', r[f_artist]).replace('%t', r[f_title]), axis=1)
+      df.loc[df[col] != updated, f_changed] = True
+      df[col] = updated
     else:
       val = prompt("New values for '%s': " % (col), default=df[col].mode()[0])
-      df[col] = val
-      df[f_changed] = True
+      val = val if val else None
+      df.loc[df[col] != val, [col, f_changed]] = [val, True]
   else:
-    val = prompt("New value for '%s': " % (col), default=df.loc[idx, col])
-    df.loc[idx, col] = val
-    df.loc[idx, f_changed] = True
+    old = df.loc[idx, col]
+    val = prompt("New value for '%s': " % (col), default=old)
+    val = val if val else None
+    if val != old:
+      df.loc[idx, [col, f_changed]] = [val, True]
 
 def data_columns(df, plus=[]):
   return df.columns.intersection(dataCols + plus)
