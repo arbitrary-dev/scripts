@@ -40,6 +40,7 @@ f_disc         = 'disc'
 
 f_filename = 'filename'
 f_file     = 'file'
+f_changed  = 'changed'
 
 dataCols = [ f_num         , f_artist , f_title , f_album_artist , f_album , f_year , f_comment     , f_genre , f_disc       ]
 dataExtr = {
@@ -123,9 +124,10 @@ def write(df):
         rename(filepath, new_filepath)
         print("\nRENAMED: %s -> %s" % (filepath, new_filepath))
 
-  # TODO write only changed files
-  for _, row in df.iterrows():
+  for _, row in df[df.changed].iterrows():
     writeOne(row)
+
+  print("\nDone!")
 
 def filename(filepath):
   return splitext(basename(filepath))[0]
@@ -159,12 +161,12 @@ def post_process(val, col, file, filepath):
     ]
     val = next(filter(None, map(lambda x: x(), arr)))
   elif col == f_title:
-    # TODO Apply the Title Case
     val = val if val else artist_title(filename(filepath))[1]
     if val:
       # Remove artist
       val = val.split(" - ")[-1]
       val = val.replace('-', ' ')
+      # TODO Apply the Title Case
       # Lower case helper words
       arr = val.split(' ')
       lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'the']
@@ -208,12 +210,15 @@ def edit(df, idx, col):
       val = prompt("New template for 'filename': ")
       # TODO %01d for nums of total <10
       df[f_filename] = df.apply(lambda r: val.replace('%n', '%02d' % (r[f_num])).replace('%a', r[f_artist]).replace('%t', r[f_title]), axis=1)
+      df[f_changed] = True
     else:
       val = prompt("New values for '%s': " % (col), default=df[col].mode()[0])
       df[col] = val
+      df[f_changed] = True
   else:
     val = prompt("New value for '%s': " % (col), default=df.loc[idx, col])
     df.loc[idx, col] = val
+    df.loc[idx, f_changed] = True
 
 def data_columns(df, plus=[]):
   return df.columns.intersection(dataCols + plus)
@@ -231,11 +236,11 @@ else:
       print("Skipped %s: %s" % (tpe.__name__, filepath))
       return None
     extr = partial(get, filepath, file)
-    return list(map(extr, dataCols)) + [filename(filepath), filepath]
+    return list(map(extr, dataCols)) + [filename(filepath), filepath, False]
 
   df = pd.DataFrame(
     data = filter(None, map(row, fs)),
-    columns = dataCols + [f_filename, f_file]
+    columns = dataCols + [f_filename, f_file, f_changed]
   ).astype({
     f_num:  'Int32',
     f_year: 'Int32'
@@ -247,13 +252,21 @@ else:
   pd.set_option('display.width', get_terminal_size().columns)
   pd.set_option('display.max_colwidth', 32)
 
-  def printData():
+  def printData(what=[]):
+    cols = None
+
+    if "all" in what:
+      cols = data_columns(df, plus=[f_filename, f_file, f_changed])
+    else:
+      cols = data_columns(df, plus=[f_filename])
+
     print()
-    print(df[data_columns(df, plus=[f_filename])])
+    if f_changed in what:
+      print(df.loc[df[f_changed], cols])
+    else:
+      print(df[cols])
 
   printData()
-
-  # TODO save
 
   def handle(cmd):
     if cmd == cmd_quit:
@@ -276,16 +289,16 @@ else:
 
       clear()
       printData()
-    elif cmd == cmd_print:
+    elif cmd.startswith(cmd_print):
+      what = cmd.split(' ')[1:]
       clear()
-      printData()
+      printData(what)
     elif cmd.startswith(cmd_tags):
       idx = int(cmd.split(' ')[1])
       tags = File(df.at[idx, f_file]).pprint()
       print(tags)
     elif cmd == cmd_write:
       write(df)
-      print("Done!")
     elif cmd:
       print()
       cmd = s.prompt("%s what? " % cmd)
