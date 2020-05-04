@@ -35,13 +35,13 @@ f_album_artist = 'album_artist'
 f_album        = 'album'
 f_year         = 'year'
 f_comment      = 'comment'
-f_filename     = 'filename'
 f_genre        = 'genre'
 f_disc         = 'disc'
 
-f_file = 'file'
+f_filename = 'filename'
+f_file     = 'file'
 
-dataCols = [ f_num         , f_artist , f_title , f_album_artist , f_album , f_year , f_comment     , f_genre , f_disc       , f_filename ]
+dataCols = [ f_num         , f_artist , f_title , f_album_artist , f_album , f_year , f_comment     , f_genre , f_disc       ]
 dataExtr = {
   MP3:     [ 'TRCK'        , 'TPE1'   , 'TIT2'  , 'TPE2'         , 'TALB'  , 'TDRC' , 'COMM'        , 'TCON'  , 'TPOS'       ],
   MP4:     [ 'trkn'        , '©art'   , '©nam'  , 'aART'         , '©alb'  , '©day' , '©cmt'        , '©gen'  , 'disk'       ],
@@ -68,7 +68,7 @@ cmdsSuggest = CommandSuggest()
 s = PromptSession(completer=cmdsCompleter, auto_suggest=cmdsSuggest)
 
 def write(df):
-  cols = df.columns.drop([f_file, f_filename])
+  cols = data_columns(df)
 
   def writeOne(row):
     filepath = row[f_file]
@@ -181,8 +181,6 @@ def post_process(val, col, file, filepath):
   return val
 
 def get(filepath, file, col):
-  if col == f_filename:
-    return filename(filepath)
   try:
     val = get_raw(file, col)
     val = post_process(val, col, file, filepath)
@@ -217,6 +215,9 @@ def edit(df, idx, col):
     val = prompt("New value for '%s': " % (col), default=df.loc[idx, col])
     df.loc[idx, col] = val
 
+def data_columns(df, plus=[]):
+  return df.columns.intersection(dataCols + plus)
+
 fs = list(filter(isfile, listdir()))
 if not fs:
   print("Nothing interesting at", getcwd())
@@ -230,11 +231,11 @@ else:
       print("Skipped %s: %s" % (tpe.__name__, filepath))
       return None
     extr = partial(get, filepath, file)
-    return list(map(extr, dataCols)) + [filepath]
+    return list(map(extr, dataCols)) + [filename(filepath), filepath]
 
   df = pd.DataFrame(
     data = filter(None, map(row, fs)),
-    columns = dataCols + [f_file]
+    columns = dataCols + [f_filename, f_file]
   ).astype({
     f_num:  'Int32',
     f_year: 'Int32'
@@ -248,7 +249,7 @@ else:
 
   def printData():
     print()
-    print(df[df.columns.drop('file')])
+    print(df[data_columns(df, plus=[f_filename])])
 
   printData()
 
@@ -269,7 +270,7 @@ else:
       for i in cmd.split(' ')[1:]:
         if i.isdigit():
           idx = int(i)
-        elif i in df.columns.drop('file'):
+        elif i in data_columns(df, plus=[f_filename]):
           col = i
       edit(df, idx, col)
 
