@@ -461,6 +461,7 @@ $(_param "-b|--bitrate" "000k" "Video encoding bitrate")
 $(_param "-w|--width" "000" "   Output video width (preserves aspect ratio)")
 
 $(_param -2 "Perform only 2nd pass encoding")
+$(_param --mono "Mono audio")
 
 $(_param -eq "contrast:brightness:gamma" "\nApply eq flter
 contrast   = 1 [-2.0 ..  2.0]
@@ -482,8 +483,7 @@ EOF
   local DUR
   local BV
   local R=24
-  local AC=1
-  local codec=libvpx-vp9
+  local AC=2
   local pr_i
   local pr_vf
   local pass2=0
@@ -505,6 +505,13 @@ EOF
     [[ -n $VF ]] && VF+=,
     VF+=$2
     shift ;;
+  -dn|--denoise)
+    [ -n "$VF" ] && VF+=,
+    if [[ $2 =~ ^[0-9.:]+$ ]]; then
+      IFS=: read -ra dn <<< "$2"
+      shift
+    fi
+    VF+="hqdn3d=${dn[0]-4}:${dn[1]-3}:${dn[2]-6}:${dn[3]-4.5}" ;;
   -w|--width)
     [[ -n $VF ]] && VF+=,
     VF+="scale=${2}:-1"
@@ -512,8 +519,8 @@ EOF
   -r|--rate)
     R=$2
     shift ;;
-  --stereo)
-    AC=2 ;;
+  --mono)
+    AC=1 ;;
   -pr|--preview)
     pr_i="-i $2"
     pr_vf="[0:v][1:v]overlay=0:0:enable="
@@ -522,13 +529,14 @@ EOF
     pass2=1 ;;
   *)
     (( $# > 2 )) && _log "Unknown argument '$1'!" && return 1
-    [[ $# = 2 && $2 != *.webm ]] && _log "Wrong output file '$2' must be *.webm!" && return 1
-    IN=$1
-    OUT=$2
-    ;;
+    break ;;
   esac
   shift
   done
+
+  [[ $# = 2 && $2 != *.webm ]] && _log "Wrong output file '$2' must be *.webm!" && return 1
+  IN="$1"
+  OUT="$2"
 
   if [[ -n $VF$pr_vf ]]; then
     if [[ -n $pr_vf ]]; then
@@ -542,14 +550,14 @@ EOF
   fi
 
   FROM=${FROM:+-ss $FROM}
-  ARGS="-y -hide_banner -i $IN $pr_i \
-        -c:v $codec -r $R $BV -crf 4 \
-        -tile-columns 3 -threads 8 \
-        -speed 0 -g 9999 -frame-parallel 0 -pix_fmt +yuv420p -sn \
-        -c:a libopus -b:a 64k -ac $AC"
+  ARGS="-y -hide_banner $pr_i \
+        -c:v libvpx-vp9 -r $R $BV -crf 4 \
+        -tile-columns 3 -threads 12 -row-mt 1 \
+        -g 9999 -frame-parallel 0 -pix_fmt +yuv420p -sn \
+        -c:a libopus -vbr constrained -b:a 96k -cutoff 12000 -ac $AC"
 
-  (( ! $pass2 )) && ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 1 -f webm $FROM $DUR /dev/null || :
-  (( ! $? ))     && ffmpeg $ARGS ${VF:+-filter_complex $VF} -pass 2 $FROM $DUR ${OUT:-${IN%.*}-out.webm}
+  (( ! $pass2 )) && ffmpeg -i "$IN" $ARGS ${VF:+-filter_complex $VF} -pass 1 -an -f webm $FROM $DUR /dev/null || :
+  (( ! $? ))     && ffmpeg -i "$IN" $ARGS ${VF:+-filter_complex $VF} -pass 2 $FROM $DUR "${OUT:-${IN%.*}-out.webm}"
 
   (( ! $? )) && echo "Video converted!"
 }
