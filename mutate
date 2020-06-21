@@ -6,9 +6,6 @@
 # pip install pandas
 # pip install prompt_toolkit
 
-from os import listdir, getcwd, rename
-from os.path import isfile, basename, dirname, splitext
-
 from mutagen import File, Metadata
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, ID3TimeStamp
@@ -16,17 +13,19 @@ from mutagen.mp4 import MP4, MP4Tags
 from mutagen.flac import FLAC
 from mutagen._vorbis import VCommentDict
 
+from prompt_toolkit import PromptSession, prompt
+from prompt_toolkit.completion import NestedCompleter, FuzzyWordCompleter
+from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
+from prompt_toolkit.shortcuts import clear
+
+import os, os.path as path
 import pandas as pd
 from functools import partial
 import re
 import sys
-from shutil import get_terminal_size
+import tempfile
+import shutil as sh
 from importlib import import_module
-
-from prompt_toolkit import PromptSession, prompt
-from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
-from prompt_toolkit.shortcuts import clear
 
 f_num          = 'num'
 f_artist       = 'artist'
@@ -37,6 +36,8 @@ f_year         = 'year'
 f_comment      = 'comment'
 f_genre        = 'genre'
 f_disc         = 'disc'
+
+fields = [f_num, f_artist, f_title, f_album_artist, f_album, f_year, f_comment, f_genre, f_disc]
 
 f_filename = 'filename'
 f_file     = 'file'
@@ -49,6 +50,8 @@ dataExtr = {
   FLAC:    [ 'TRACKNUMBER' , 'ARTIST' , 'TITLE' , 'ALBUMARTIST'  , 'ALBUM' , 'DATE' , 'DESCRIPTION' , 'GENRE' , 'DISCNUMBER' ]
 }
 
+# TODO apply title_case <field>
+# TODO help
 cmd_print  = "print"
 cmd_tags   = "tags"
 cmd_remove = "remove"
@@ -56,72 +59,89 @@ cmd_edit   = "edit"
 cmd_write  = "write"
 cmd_quit   = "quit"
 
-cmds = [cmd_print, cmd_tags, cmd_remove, cmd_edit, cmd_write, cmd_quit]
+commands = [cmd_print, cmd_tags, cmd_remove, cmd_edit, cmd_write, cmd_quit]
 
-# TODO suggest column names on edit/remove
+commands_dict = dict.fromkeys(commands, None)
+commands_dict[cmd_edit] = FuzzyWordCompleter(fields + [f_filename])
+commands_dict[cmd_remove] = FuzzyWordCompleter(fields)
+completer = NestedCompleter.from_nested_dict(commands_dict)
+
 class CommandSuggest(AutoSuggest):
+  edit_remove_re = re.compile(f"({cmd_edit}|{cmd_remove}) ")
   def get_suggestion(self, buffer, document):
-    if document.find_backwards(cmd_remove):
+    if re.fullmatch(self.edit_remove_re, document.text):
       return Suggestion('0 1-3 4,5 album_artist comment')
 
-# TODO complete column names after edit/remove
-s = PromptSession(completer=WordCompleter(cmds), auto_suggest=CommandSuggest())
+s = PromptSession(completer=completer, auto_suggest=CommandSuggest())
 
 def write(df):
   cols = data_columns(df)
 
   def writeOne(row):
-    filepath = row[f_file]
-    ext = splitext(filepath)[1].lower()
-    f = File(filepath)
-    print("\nBEFORE:\n" + f.pprint())
-    ft = type(f)
-    tags = None
-    if ft == MP3:
-      tags = ID3()
-    elif ft == MP4:
-      # TODO check MP4
-      tags = MP4Tags()
-    elif ft == FLAC:
-      # TODO check FLAC
-      tags = VCommentDict()
-    de = dataExtr[ft]
-
-    def set_tag(tag, val):
+    _, filepath_temp = tempfile.mkstemp()
+    try:
+      filepath_orig = row[f_file]
+      sh.copy2(filepath_orig, filepath_temp)
+      ext = path.splitext(filepath_orig)[1].lower()
+      f = File(filepath_temp)
+      print("\nBEFORE:\n" + f.pprint())
+      ft = type(f)
+      tags = None
       if ft == MP3:
-        Tag = getattr(import_module("mutagen.id3"), tag)
-        if c == f_year:
-          val = [ID3TimeStamp(str(val))]
+        tags = ID3()
+      elif ft == MP4:
+        # TODO check MP4
+        tags = MP4Tags()
+      elif ft == FLAC:
+        f.delete()
+        f = File(filepath_temp)
+        f.add_tags()
+        tags = f.tags
+      de = dataExtr[ft]
+
+      def set_tag(tag, val):
+        if ft == MP3:
+          Tag = getattr(import_module("mutagen.id3"), tag)
+          if c == f_year:
+            val = [ID3TimeStamp(str(val))]
+          else:
+            val = [val]
+          tags.setall(tag, [Tag(3, text=val)])
         else:
-          val = [val]
-        tags.setall(tag, [Tag(3, text=val)])
-      else:
-        tags[tag] = val
+          tags[tag] = str(val)
 
-    abort = False
-    for c in cols:
-      tag = de[dataCols.index(c)]
-      val = row[c]
-      if not val:
-        continue
+      abort = False
+      for c in cols:
+        tag = de[dataCols.index(c)]
+        val = row[c]
+        if not val:
+          continue
+        try:
+          set_tag(tag, val)
+        except:
+          print("Error while setting tag '%s' to '%s': %s" % (tag, val, sys.exc_info()[1]))
+          abort = True
+
+      if not abort:
+        if (ft != FLAC):
+          f.tags = tags
+        print("\nAFTER:\n" + f.pprint())
+        f.save(filepath_temp)
+
+        fname = row[f_filename]
+        if filename(filepath_orig) == fname:
+          os.rename(filepath_temp, filepath_orig)
+        else:
+          d = path.dirname(filepath_orig)
+          d = (d + '/') if d else ""
+          new_filepath = d + fname + ext
+          os.rename(filepath_temp, new_filepath)
+          print("\nRENAMED: %s -> %s" % (filepath_orig, new_filepath))
+    finally:
       try:
-        set_tag(tag, val)
+        os.remove(filepath_temp)
       except:
-        print("Error while setting tag '%s' to '%s': %s" % (tag, val, sys.exc_info()[1]))
-        abort = True
-
-    if not abort:
-      f.tags = tags
-      print("\nAFTER:\n" + f.pprint())
-      f.save()
-
-      fname = row[f_filename]
-      if filename(filepath) != fname:
-        d = dirname(filepath)
-        d = (d + '/') if d else ""
-        new_filepath = d + fname + ext
-        rename(filepath, new_filepath)
-        print("\nRENAMED: %s -> %s" % (filepath, new_filepath))
+        pass
 
   for _, row in df[df.changed].iterrows():
     writeOne(row)
@@ -129,7 +149,7 @@ def write(df):
   print("\nDone!")
 
 def filename(filepath):
-  return splitext(basename(filepath))[0]
+  return path.splitext(path.basename(filepath))[0]
 
 def get_raw(file, col):
   tpe = type(file)
@@ -140,7 +160,7 @@ def get_raw(file, col):
     val = file.tags.getall(key)
     val = val[0].text[0] if val and val[0].text else None
   elif val:
-    if tpe == MP4:
+    if tpe == MP4 or tpe == FLAC:
       if isinstance(val, list):
         val = val[0]
       if col == f_num and isinstance(val, tuple):
@@ -151,6 +171,21 @@ def artist_title(s):
   s = s.replace('_', ' ') if s and s.count('_') and s.count('-') and not s.count(' ') else s
   arr = s.split(" - ") if s else None
   return arr if arr and len(arr) == 2 else (None, None)
+
+tc_lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'the']
+tc_upper = ['DJ']
+def apply_title_case(str):
+  def f(x):
+    if x.lower() in tc_lower:
+      return x.lower()
+    elif x.upper() in tc_upper:
+      return x.upper()
+    else:
+      return x
+  arr = str.split(' ')
+  arr = [arr[0]] + list(map(f, arr[1:]))
+  str = ' '.join(arr)
+  return str
 
 def post_process(val, col, file, filepath):
   if col == f_comment:
@@ -164,20 +199,19 @@ def post_process(val, col, file, filepath):
       lambda: artist_title(filename(filepath))[0]
     ]
     val = next(filter(None, map(lambda x: x(), arr)))
+    val = apply_title_case(val)
   elif col == f_title:
     val = val if val else artist_title(filename(filepath))[1]
     if val:
       # Remove artist
       val = val.split(" - ")[-1]
       val = val.replace('-', ' ')
-      # TODO Apply the Title Case
-      # Lower case helper words
       arr = val.split(' ')
-      lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'the']
-      val = ' '.join([arr[0]] + [i.lower() if i.lower() in lower else i for i in arr[1:]])
+      val = apply_title_case(val)
   elif col == f_album and val:
     # Remove date
     val = re.sub(r"\(?(\d{4}-..-..|\d{4})\)?", "", val)
+    val = apply_title_case(val)
   elif col == f_num and val:
     val = re.sub(r"(\d+)/?.*", r"\1", val)
     val = int(val) if val else None
@@ -212,11 +246,13 @@ def remove(what, df):
     if idxs:
       query &= idxs
     df.loc[query, f_changed] = True
+  # TODO if both idxs & cols specified, then only cells should be emptied
   df.drop(index=idxs, columns=cols, inplace=True)
 
 def edit(df, idx, col):
   if idx == None:
     if col == f_filename:
+      # TODO auto-suggest template format
       val = prompt("New template for 'filename': ")
       # TODO %01d for nums of total <10
       updated = df.apply(lambda r: val.replace('%n', '%02d' % (r[f_num])).replace('%a', r[f_artist]).replace('%t', r[f_title]), axis=1)
@@ -236,9 +272,9 @@ def edit(df, idx, col):
 def data_columns(df, plus=[]):
   return df.columns.intersection(dataCols + plus)
 
-fs = list(filter(isfile, listdir()))
+fs = list(filter(path.isfile, os.listdir()))
 if not fs:
-  print("Nothing interesting at", getcwd())
+  print("Nothing interesting at", os.getcwd())
 else:
   def row(filepath):
     file = File(filepath)
@@ -258,11 +294,12 @@ else:
     f_num:  'Int32',
     f_year: 'Int32'
   })
+  # TODO check if DF is not empty
   df.sort_values(f_num, inplace=True)
   df.reset_index(drop=True, inplace=True)
 
   pd.set_option('display.max_columns', None)
-  pd.set_option('display.width', get_terminal_size().columns)
+  pd.set_option('display.width', sh.get_terminal_size().columns)
   pd.set_option('display.max_colwidth', 32)
 
   def printData(what=[]):
