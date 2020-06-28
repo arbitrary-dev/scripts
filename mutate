@@ -261,7 +261,9 @@ def edit(df, idx, col):
       df.loc[df[col] != updated, f_changed] = True
       df[col] = updated
     else:
-      val = prompt("New values for '%s': " % (col), default=df[col].mode()[0])
+      default = df[col].mode()
+      default = "" if default.empty else default[0]
+      val = prompt("New values for '%s': " % (col), default=default)
       val = val if val else None
       df.loc[df[col] != val, [col, f_changed]] = [val, True]
   else:
