@@ -66,6 +66,7 @@ commands_dict[cmd_edit] = FuzzyWordCompleter(fields + [f_filename])
 commands_dict[cmd_remove] = FuzzyWordCompleter(fields)
 completer = NestedCompleter.from_nested_dict(commands_dict)
 
+# TODO allow disambiguous shortcuts
 class CommandSuggest(AutoSuggest):
   edit_remove_re = re.compile(f"({cmd_edit}|{cmd_remove}) ")
   def get_suggestion(self, buffer, document):
@@ -114,7 +115,7 @@ def write(df):
       for c in cols:
         tag = de[dataCols.index(c)]
         val = row[c]
-        if not val:
+        if pd.isna(val):
           continue
         try:
           set_tag(tag, val)
@@ -224,6 +225,7 @@ def get(filepath, file, col):
   try:
     val = get_raw(file, col)
     val = post_process(val, col, file, filepath)
+    # print(col, val)
     return val
   except:
     print("Error while processing '%s': %s" % (col, repr(sys.exc_info()[1])))
@@ -272,6 +274,7 @@ def edit(df, idx, col):
 def data_columns(df, plus=[]):
   return df.columns.intersection(dataCols + plus)
 
+# TODO try to read filenames from args first
 fs = list(filter(path.isfile, os.listdir()))
 if not fs:
   print("Nothing interesting at", os.getcwd())
@@ -299,7 +302,6 @@ else:
   df.reset_index(drop=True, inplace=True)
 
   pd.set_option('display.max_columns', None)
-  pd.set_option('display.width', sh.get_terminal_size().columns)
   pd.set_option('display.max_colwidth', 32)
 
   def printData(what=[]):
@@ -311,6 +313,7 @@ else:
       cols = data_columns(df, plus=[f_filename])
 
     print()
+    pd.set_option('display.width', sh.get_terminal_size().columns)
     if f_changed in what:
       print(df.loc[df[f_changed], cols])
     else:
