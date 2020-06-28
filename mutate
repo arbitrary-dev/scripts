@@ -274,8 +274,10 @@ def edit(df, idx, col):
 def data_columns(df, plus=[]):
   return df.columns.intersection(dataCols + plus)
 
-# TODO try to read filenames from args first
-fs = list(filter(path.isfile, os.listdir()))
+fs = sys.argv[1:]
+if not fs:
+  fs = os.listdir()
+fs = list(filter(path.isfile, fs))
 if not fs:
   print("Nothing interesting at", os.getcwd())
 else:
