@@ -173,7 +173,8 @@ def artist_title(s):
   arr = s.split(" - ") if s else None
   return arr if arr and len(arr) == 2 else (None, None)
 
-tc_lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'the']
+tc_lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'the', 'remix', 'extended',
+  'version']
 tc_upper = ['DJ']
 def apply_title_case(str):
   def f(x):
@@ -263,6 +264,7 @@ def edit(df, idx, col):
     else:
       default = df[col].mode()
       default = "" if default.empty else default[0]
+      # TODO multiline edit of several values
       val = prompt("New values for '%s': " % (col), default=default)
       val = val if val else None
       df.loc[df[col] != val, [col, f_changed]] = [val, True]
