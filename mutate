@@ -260,10 +260,15 @@ def remove(what, df):
 def edit(df, idx, col):
   if idx == None:
     if col == f_filename:
-      # TODO auto-suggest template format
-      val = prompt("New template for 'filename': ")
-      # TODO %01d for nums of total <10
-      updated = df.apply(lambda r: val.replace('%n', '%02d' % (r[f_num])).replace('%a', r[f_artist]).replace('%t', r[f_title]), axis=1)
+      val = prompt("New template for 'filename': ", default="%n %a - %t")
+      zero_pad = str(df[f_num].map(lambda x: len(str(x))).max())
+      zero_pad = '%0' + zero_pad + 'd'
+      updated = df.apply(lambda r:
+        val.replace('%n', (zero_pad % (r[f_num])) if r[f_num] else "None")
+           .replace('%a', str(r[f_artist]))
+           .replace('%t', str(r[f_title])),
+        axis=1
+      )
       df.loc[df[col] != updated, f_changed] = True
       df[col] = updated
     else:
