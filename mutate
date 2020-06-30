@@ -173,14 +173,15 @@ def artist_title(s):
   arr = s.split(" - ") if s else None
   return arr if arr and len(arr) == 2 else (None, None)
 
+non_alpha_re = r'[^a-zA-Z]+'
 tc_lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'the', 'remix', 'extended',
-  'version']
+  'version', 'mix']
 tc_upper = ['DJ']
 def apply_title_case(str):
   def f(x):
-    if x.lower() in tc_lower:
+    if re.sub(non_alpha_re, '', x).lower() in tc_lower:
       return x.lower()
-    elif x.upper() in tc_upper:
+    elif re.sub(non_alpha_re, '', x).upper() in tc_upper:
       return x.upper()
     else:
       return x
@@ -210,6 +211,7 @@ def post_process(val, col, file, filepath):
       val = val.replace('-', ' ')
       arr = val.split(' ')
       val = apply_title_case(val)
+      # TODO remove "(original mix)"
   elif col == f_album and val:
     # Remove date
     val = re.sub(r"\(?(\d{4}-..-..|\d{4})\)?", "", val)
