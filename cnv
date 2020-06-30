@@ -262,11 +262,17 @@ _video() {
   (( $(bc <<< ${A[1]}/${A[0]}) < 60000 )) && A="-c:a copy" \
                                           || A="-c:a libfdk_aac -ar 44100 -vbr 3"
 
-  (( $BR_V > 1400000 )) && BR_V=1400000
+  (( $BR_V > 1400000 )) && BR_V=2000000
+
+  # local vf="scale=640:trunc(ow/a/2)*2"
+
+  # CCW rotation
+  # local vf="transpose=2"
 
   # TODO use film in parallel and with -passlogfile
-  ffmpeg -i "$1" -v quiet -hide_banner -y -c:v mpeg4 -b:v $BR_V -vf 'scale=640:trunc(ow/a/2)*2' \
-         -flags +aic+mv4 $A "_${1%.*}.mp4" >/dev/null
+  ffmpeg -i "$1" -v quiet -hide_banner -y \
+         -c:v libx264 -x264-params threads=4 $BV -b:v $BR_V ${vf:+-vf "$vf"}  \
+         $A "_${1%.*}.mp4" >/dev/null
 
   if (( $? )); then
     printf e
