@@ -18,8 +18,10 @@ from prompt_toolkit.completion import NestedCompleter, FuzzyWordCompleter
 from prompt_toolkit.auto_suggest import AutoSuggest, Suggestion
 from prompt_toolkit.shortcuts import clear
 
-import os, os.path as path
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
+
+import os, os.path as path
 from functools import partial
 import re
 import sys
@@ -136,6 +138,7 @@ def write(df):
           d = path.dirname(filepath_orig)
           d = (d + '/') if d else ""
           new_filepath = d + fname + ext
+          # TODO remove old one
           os.rename(filepath_temp, new_filepath)
           print("\nRENAMED: %s -> %s" % (filepath_orig, new_filepath))
     finally:
@@ -271,10 +274,11 @@ def edit(df, idx, col):
       val = val if val else None
       df.loc[df[col] != val, [col, f_changed]] = [val, True]
   else:
-    old = df.loc[idx, col]
+    old = str(df.loc[idx, col])
     val = prompt("New value for '%s': " % (col), default=old)
     val = val if val else None
     if val != old:
+      val = pd.to_numeric(val) if is_numeric_dtype(df[col]) else val
       df.loc[idx, [col, f_changed]] = [val, True]
 
 def data_columns(df, plus=[]):
