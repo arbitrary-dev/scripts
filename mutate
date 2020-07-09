@@ -68,7 +68,6 @@ def completer():
   d[cmd_remove] = d['rm'] = d['r'] = FuzzyWordCompleter(fields)
   return NestedCompleter.from_nested_dict(d)
 
-# TODO allow disambiguous shortcuts
 class CommandSuggest(AutoSuggest):
   edit_remove_re = re.compile(f"({cmd_edit}|e|{cmd_remove}|rm|r) ")
   def get_suggestion(self, buffer, document):
