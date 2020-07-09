@@ -61,21 +61,21 @@ cmd_edit   = "edit"
 cmd_write  = "write"
 cmd_quit   = "quit"
 
-commands = [cmd_print, cmd_tags, cmd_remove, cmd_edit, cmd_write, cmd_quit]
-
-commands_dict = dict.fromkeys(commands, None)
-commands_dict[cmd_edit] = FuzzyWordCompleter(fields + [f_filename])
-commands_dict[cmd_remove] = FuzzyWordCompleter(fields)
-completer = NestedCompleter.from_nested_dict(commands_dict)
+def completer():
+  cmds = [cmd_print, cmd_tags, cmd_remove, cmd_edit, cmd_write, cmd_quit]
+  d = dict.fromkeys(cmds, None)
+  d[cmd_edit] = d['e'] = FuzzyWordCompleter(fields + [f_filename])
+  d[cmd_remove] = d['rm'] = d['r'] = FuzzyWordCompleter(fields)
+  return NestedCompleter.from_nested_dict(d)
 
 # TODO allow disambiguous shortcuts
 class CommandSuggest(AutoSuggest):
-  edit_remove_re = re.compile(f"({cmd_edit}|{cmd_remove}) ")
+  edit_remove_re = re.compile(f"({cmd_edit}|e|{cmd_remove}|rm|r) ")
   def get_suggestion(self, buffer, document):
     if re.fullmatch(self.edit_remove_re, document.text):
       return Suggestion('0 1-3 4,5 album_artist comment')
 
-s = PromptSession(completer=completer, auto_suggest=CommandSuggest())
+s = PromptSession(completer=completer(), auto_suggest=CommandSuggest())
 
 def write(df):
   cols = data_columns(df)
