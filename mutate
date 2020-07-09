@@ -338,19 +338,19 @@ else:
 
   printData()
 
-  def handle(cmd):
-    if cmd == cmd_quit:
+  def handle(string):
+    cmd, *opts = string.split(' ')
+    if cmd in [cmd_quit, 'q']:
       sys.exit(0)
-    if cmd.startswith(cmd_remove):
-      what = cmd.split(' ')[1:]
-      remove(what, df)
-
+    if cmd in [cmd_remove, 'rm', 'r']:
+      remove(opts, df)
       clear()
       printData()
-    elif cmd.startswith(cmd_edit):
+    elif cmd in [cmd_edit, 'e']:
       idx = None
       col = None
-      for i in cmd.split(' ')[1:]:
+
+      for i in opts:
         if i.isdigit():
           idx = int(i)
         elif i in data_columns(df, plus=[f_filename]):
@@ -359,15 +359,14 @@ else:
 
       clear()
       printData()
-    elif cmd.startswith(cmd_print):
-      what = cmd.split(' ')[1:]
+    elif cmd in [cmd_print, 'p']:
       clear()
-      printData(what)
-    elif cmd.startswith(cmd_tags):
-      idx = int(cmd.split(' ')[1])
+      printData(opts)
+    elif cmd in [cmd_tags, 't']:
+      idx = int(opts[1])
       tags = File(df.at[idx, f_file]).pprint()
       print(tags)
-    elif cmd == cmd_write:
+    elif cmd in [cmd_write, 'w']:
       write(df)
     elif cmd:
       print()
