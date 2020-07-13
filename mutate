@@ -92,7 +92,6 @@ def write(df):
       if ft == MP3:
         tags = ID3()
       elif ft == MP4:
-        # TODO check MP4
         tags = MP4Tags()
       elif ft == FLAC:
         f.delete()
@@ -101,17 +100,6 @@ def write(df):
         tags = f.tags
       de = dataExtr[ft]
 
-      def set_tag(tag, val):
-        if ft == MP3:
-          Tag = getattr(import_module("mutagen.id3"), tag)
-          if c == f_year:
-            val = [ID3TimeStamp(str(val))]
-          else:
-            val = [val]
-          tags.setall(tag, [Tag(3, text=val)])
-        else:
-          tags[tag] = str(val)
-
       abort = False
       for c in cols:
         tag = de[dataCols.index(c)]
@@ -119,7 +107,17 @@ def write(df):
         if pd.isna(val):
           continue
         try:
-          set_tag(tag, val)
+          if ft == MP3:
+            Tag = getattr(import_module("mutagen.id3"), tag)
+            if c == f_year:
+              val = [ID3TimeStamp(str(val))]
+            else:
+              val = [val]
+            tags.setall(tag, [Tag(3, text=val)])
+          elif ft == MP4 and (c in [f_num, f_disc]):
+            tags[tag] = [(val, 0)]
+          else:
+            tags[tag] = str(val)
         except:
           print("Error while setting tag '%s' to '%s': %s" % (tag, val, sys.exc_info()[1]))
           abort = True
@@ -166,7 +164,8 @@ def get_raw(file, col):
     if tpe == MP4 or tpe == FLAC:
       if isinstance(val, list):
         val = val[0]
-      if col == f_num and isinstance(val, tuple):
+      # Yep, it should be done twice
+      if isinstance(val, tuple):
         val = val[0]
   return str(val).strip() if val else None
 
@@ -219,7 +218,7 @@ def post_process(val, col, file, filepath):
     # Remove date
     val = re.sub(r"\(?(\d{4}-..-..|\d{4})\)?", "", val)
     val = apply_title_case(val)
-  elif col == f_num and val:
+  elif col in [f_num, f_disc] and val:
     val = re.sub(r"(\d+)/?.*", r"\1", val)
     val = int(val) if val else None
   elif col == f_year and val:
@@ -261,18 +260,26 @@ def edit(df, idx, col):
   if idx == None:
     if col == f_filename:
       val = prompt("New template for 'filename': ", default="%n %a - %t")
-      zero_pad = str(df[f_num].map(lambda x: len(str(x))).max())
-      zero_pad = '%0' + zero_pad + 'd'
-      updated = df.apply(lambda r:
-        val.replace('%n', (zero_pad % (r[f_num])) if r[f_num] else "None")
-           .replace('%a', str(r[f_artist]))
-           .replace('%t', str(r[f_title])),
-        axis=1
-      )
+      zero_pad = None
+      if '%n' in val and f_num in df.columns:
+        zero_pad = str(df[f_num].map(lambda x: len(str(x))).max())
+        zero_pad = '%0' + zero_pad + 'd'
+      def f(r):
+        result = val
+        if '%n' in val:
+          result = result.replace('%n', (zero_pad % (r[f_num])) if r[f_num] else "None")
+        if '%a' in val:
+          result = result.replace('%a', str(r[f_artist]))
+        if '%t' in val:
+          result = result.replace('%t', str(r[f_title]))
+        return result
+      updated = df.apply(f, axis=1)
       df.loc[df[col] != updated, f_changed] = True
       df[col] = updated
     else:
       default = df[col].mode()
+      if default.empty and col == f_album_artist:
+        default = df[f_artist].mode()
       default = "" if default.empty else default[0]
       # TODO multiline edit of several values
       val = prompt("New values for '%s': " % (col), default=default)
@@ -314,7 +321,9 @@ else:
     f_num:  'Int32',
     f_year: 'Int32'
   })
-  # TODO check if DF is not empty
+  if df.empty:
+    print("Nothing to do here!")
+    sys.exit(0)
   df.sort_values(f_num, inplace=True)
   df.reset_index(drop=True, inplace=True)
 
@@ -343,10 +352,18 @@ else:
     if cmd in [cmd_quit, 'q']:
       sys.exit(0)
     if cmd in [cmd_remove, 'rm', 'r']:
+      if not opts:
+        print("No options provided!")
+        return
+
       remove(opts, df)
       clear()
       printData()
     elif cmd in [cmd_edit, 'e']:
+      if not opts:
+        print("No options provided!")
+        return
+
       idx = None
       col = None
 
@@ -363,11 +380,16 @@ else:
       clear()
       printData(opts)
     elif cmd in [cmd_tags, 't']:
-      idx = int(opts[1])
+      if not opts:
+        print("No options provided!")
+        return
+
+      idx = int(opts[0])
       tags = File(df.at[idx, f_file]).pprint()
       print(tags)
     elif cmd in [cmd_write, 'w']:
       write(df)
+      sys.exit(0)
     elif cmd:
       print()
       cmd = s.prompt("%s what? " % cmd)
