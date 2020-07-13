@@ -693,7 +693,7 @@ EOF
 if (( ! $# )); then
   cat <<EOF
 Universal media convertor
-$(_usage) <ao|concat|covers|cut|gif|videos|photos|player|film|webm>
+$(_usage) <ao|concat|covers|cut|gif|videos|photos|music|film|webm>
 EOF
 else
   CMD="$1"
