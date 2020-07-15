@@ -175,8 +175,8 @@ def artist_title(s):
   return arr if arr and len(arr) == 2 else (None, None)
 
 non_alpha_re = r'[^a-zA-Z]+'
-tc_lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'the', 'remix', 'extended',
-  'version', 'mix']
+tc_lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'to', 'the', 'remix',
+  'extended', 'version', 'mix']
 tc_upper = ['DJ']
 def apply_title_case(str):
   def f(x):
