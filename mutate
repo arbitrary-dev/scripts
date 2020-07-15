@@ -284,14 +284,14 @@ def edit(df, idx, col):
       default = df[col].mode()
       multiline = False
       expected_size = 1
-      if default.size > 1:
-        expected_size = default.size
+      if df[col].nunique() > 1:
+        expected_size = df[col].size
         default = df[col].str.cat(sep='\n')
         multiline = True
       else:
         if default.empty and col == f_album_artist:
           default = df[f_artist].mode()
-        default = "" if default.empty else default[0]
+        default = '' if default.empty else default[0]
       val = prompt(
         "\nNew values for '%s'%s" % (
           col,
