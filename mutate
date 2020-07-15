@@ -301,7 +301,7 @@ def edit(df, idx, col):
         if val.size != expected_size:
           print("\nInput size %d doesn't match expected %d" % (val.size, expected_size))
           return False
-        df[f_changed] = df[col] != val
+        df.loc[df[col] != val, f_changed] = True
         df[col] = val
       else:
         val = val if val else None
