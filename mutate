@@ -259,7 +259,11 @@ def remove(what, df):
 def edit(df, idx, col):
   if idx == None:
     if col == f_filename:
-      val = prompt("New template for 'filename': ", default="%n %a - %t")
+      single_artist = df[f_artist].nunique() == 1
+      val = prompt(
+        "New template for 'filename': ",
+        default = "%%n %s%%t" % ('' if single_artist else "%a - ")
+      )
       zero_pad = None
       if '%n' in val and f_num in df.columns:
         zero_pad = str(df[f_num].map(lambda x: len(str(x))).max())
