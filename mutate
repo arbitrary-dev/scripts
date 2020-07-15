@@ -278,13 +278,34 @@ def edit(df, idx, col):
       df[col] = updated
     else:
       default = df[col].mode()
-      if default.empty and col == f_album_artist:
-        default = df[f_artist].mode()
-      default = "" if default.empty else default[0]
-      # TODO multiline edit of several values
-      val = prompt("New values for '%s': " % (col), default=default)
-      val = val if val else None
-      df.loc[df[col] != val, [col, f_changed]] = [val, True]
+      multiline = False
+      expected_size = 1
+      if default.size > 1:
+        expected_size = default.size
+        default = df[col].str.cat(sep='\n')
+        multiline = True
+      else:
+        if default.empty and col == f_album_artist:
+          default = df[f_artist].mode()
+        default = "" if default.empty else default[0]
+      val = prompt(
+        "\nNew values for '%s'%s" % (
+          col,
+          ' (Alt+Enter):\n\n' if multiline else ': '
+        ),
+        default=default,
+        multiline=multiline,
+      )
+      if multiline and '\n' in val:
+        val = pd.Series(val.split('\n'))
+        if val.size != expected_size:
+          print("\nInput size %d doesn't match expected %d" % (val.size, expected_size))
+          return False
+        df[f_changed] = df[col] != val
+        df[col] = val
+      else:
+        val = val if val else None
+        df.loc[df[col] != val, [col, f_changed]] = [val, True]
   else:
     old = str(df.loc[idx, col])
     val = prompt("New value for '%s': " % (col), default=old)
@@ -292,6 +313,7 @@ def edit(df, idx, col):
     if val != old:
       val = pd.to_numeric(val) if is_numeric_dtype(df[col]) else val
       df.loc[idx, [col, f_changed]] = [val, True]
+  return True
 
 def data_columns(df, plus=[]):
   return df.columns.intersection(dataCols + plus)
@@ -372,10 +394,10 @@ else:
           idx = int(i)
         elif i in data_columns(df, plus=[f_filename]):
           col = i
-      edit(df, idx, col)
 
-      clear()
-      printData()
+      if edit(df, idx, col):
+        clear()
+        printData()
     elif cmd in [cmd_print, 'p']:
       clear()
       printData(opts)
