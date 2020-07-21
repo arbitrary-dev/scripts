@@ -175,13 +175,15 @@ def artist_title(s):
   return arr if arr and len(arr) == 2 else (None, None)
 
 non_alpha_re = r'[^a-zA-Z]+'
+# TODO add "club mix"
 tc_lower = ['a', 'an', 'and', 'by', 'for', 'of', 'or', 'to', 'the', 'remix',
-  'extended', 'version', 'mix']
+  'rework', 'extended', 'version', 'mix']
 tc_upper = ['DJ']
 def apply_title_case(str):
   def f(x):
     if re.sub(non_alpha_re, '', x).lower() in tc_lower:
       return x.lower()
+    # FIXME won't work for "^Dj"
     elif re.sub(non_alpha_re, '', x).upper() in tc_upper:
       return x.upper()
     else:
@@ -204,6 +206,7 @@ def post_process(val, col, file, filepath):
     ]
     val = next(filter(None, map(lambda x: x(), arr)))
     val = apply_title_case(val)
+    # TODO fix "vs" & "feat"
   elif col == f_title:
     val = val if val else artist_title(filename(filepath))[1]
     if val:
@@ -257,66 +260,69 @@ def remove(what, df):
   df.drop(index=idxs, columns=cols, inplace=True)
 
 def edit(df, idx, col):
-  if idx == None:
-    if col == f_filename:
-      single_artist = df[f_artist].nunique() == 1
-      val = prompt(
-        "New template for 'filename': ",
-        default = "%%n %s%%t" % ('' if single_artist else "%a - ")
-      )
-      zero_pad = None
-      if '%n' in val and f_num in df.columns:
-        zero_pad = str(df[f_num].map(lambda x: len(str(x))).max())
-        zero_pad = '%0' + zero_pad + 'd'
-      def f(r):
-        result = val
-        if '%n' in val:
-          result = result.replace('%n', (zero_pad % (r[f_num])) if r[f_num] else "None")
-        if '%a' in val:
-          result = result.replace('%a', str(r[f_artist]))
-        if '%t' in val:
-          result = result.replace('%t', str(r[f_title]))
-        return result
-      updated = df.apply(f, axis=1)
-      df.loc[df[col] != updated, f_changed] = True
-      df[col] = updated
+  try:
+    if idx == None:
+      if col == f_filename:
+        single_artist = df[f_artist].nunique() == 1
+        val = prompt(
+          "New template for 'filename': ",
+          default = "%%n %s%%t" % ('' if single_artist else "%a - ")
+        )
+        zero_pad = None
+        if '%n' in val and f_num in df.columns:
+          zero_pad = str(df[f_num].map(lambda x: len(str(x))).max())
+          zero_pad = '%0' + zero_pad + 'd'
+        def f(r):
+          result = val
+          if '%n' in val:
+            result = result.replace('%n', (zero_pad % (r[f_num])) if r[f_num] else "None")
+          if '%a' in val:
+            result = result.replace('%a', str(r[f_artist]))
+          if '%t' in val:
+            result = result.replace('%t', str(r[f_title]))
+          return result
+        updated = df.apply(f, axis=1)
+        df.loc[df[col] != updated, f_changed] = True
+        df[col] = updated
+      else:
+        default = df[col].mode()
+        multiline = False
+        expected_size = 1
+        if df[col].nunique() > 1:
+          expected_size = df[col].size
+          default = df[col].str.cat(sep='\n')
+          multiline = True
+        else:
+          if default.empty and col == f_album_artist:
+            default = df[f_artist].mode()
+          default = '' if default.empty else default[0]
+        val = prompt(
+          "\nNew values for '%s'%s" % (
+            col,
+            ' (Alt+Enter):\n\n' if multiline else ': '
+          ),
+          default=default,
+          multiline=multiline,
+        )
+        if multiline and '\n' in val:
+          val = pd.Series(val.split('\n'))
+          if val.size != expected_size:
+            print("\nInput size %d doesn't match expected %d" % (val.size, expected_size))
+            return False
+          df.loc[df[col] != val, f_changed] = True
+          df[col] = val
+        else:
+          val = val if val else None
+          df.loc[df[col] != val, [col, f_changed]] = [val, True]
     else:
-      default = df[col].mode()
-      multiline = False
-      expected_size = 1
-      if df[col].nunique() > 1:
-        expected_size = df[col].size
-        default = df[col].str.cat(sep='\n')
-        multiline = True
-      else:
-        if default.empty and col == f_album_artist:
-          default = df[f_artist].mode()
-        default = '' if default.empty else default[0]
-      val = prompt(
-        "\nNew values for '%s'%s" % (
-          col,
-          ' (Alt+Enter):\n\n' if multiline else ': '
-        ),
-        default=default,
-        multiline=multiline,
-      )
-      if multiline and '\n' in val:
-        val = pd.Series(val.split('\n'))
-        if val.size != expected_size:
-          print("\nInput size %d doesn't match expected %d" % (val.size, expected_size))
-          return False
-        df.loc[df[col] != val, f_changed] = True
-        df[col] = val
-      else:
-        val = val if val else None
-        df.loc[df[col] != val, [col, f_changed]] = [val, True]
-  else:
-    old = str(df.loc[idx, col])
-    val = prompt("New value for '%s': " % (col), default=old)
-    val = val if val else None
-    if val != old:
-      val = pd.to_numeric(val) if is_numeric_dtype(df[col]) else val
-      df.loc[idx, [col, f_changed]] = [val, True]
+      old = str(df.loc[idx, col])
+      val = prompt("New value for '%s': " % (col), default=old)
+      val = val if val else None
+      if val != old:
+        val = pd.to_numeric(val) if is_numeric_dtype(df[col]) else val
+        df.loc[idx, [col, f_changed]] = [val, True]
+  except KeyboardInterrupt:
+    return False
   return True
 
 def data_columns(df, plus=[]):
