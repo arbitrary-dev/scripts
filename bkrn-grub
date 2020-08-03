@@ -1,19 +1,31 @@
 #!/bin/zsh
 
+# Disables "no matches found" error
+setopt +o nomatch
+
 _press_space() {
   read -sk1 ?"Press [space] to continue... "
   printf "\e[80D\e[K"
 }
 
-grub-upd() {
-  mount /boot &> /dev/null
-  grub-mkconfig -o /boot/grub/grub.cfg
+_backup_boot() {
+  for f in /boot/{config,initramfs,System,vmlinuz}*; do
+    echo "Backing up $f..."
+    mv -i "$f" "$f.old"
+  done
+}
+
+_restore_boot() {
+  for f in /boot/*.old; do
+    local to="${f%.old}"
+    echo "Restoring $to..."
+    mv -i "$f" "$to"
+  done
 }
 
 bkrn() {
-  local wd=$(pwd)
   local src=/usr/src/linux
-  local name=`stat $src | head -n1 | sed "s/.+'(.+)'/\1/"`
+  local name=`stat $src | head -1 | cut -d\  -f6`
 
   echo "Build kernel for $name"
   echo
@@ -28,12 +40,16 @@ bkrn() {
 
   if [[ ! -f $bdir/.config && -f $cfg ]]; then
     echo "Copying $cfg to $bdir ..."
-    cp $cfg $bdir &> /dev/null
+    mv $cfg $bdir &> /dev/null
   fi
   cfg=$bdir/${cfg##*/}
 
-  cd $src
-  make mrproper
+  pushd $src
+  if read -q ?"Ask Mr. Proper to clean $src? "; then
+    echo
+    make mrproper
+  fi
+  echo
 
   # .config
 
@@ -54,100 +70,122 @@ bkrn() {
     fi
   fi
 
-  # make silentoldconfig
+  # make oldconfig
 
-  local wo_distcc=${PATH//\/usr\/lib\/distcc\/bin:/}
+  local clean_path="${${PATH//\/usr\/lib\/distcc\/bin:/}//\/usr\/lib\/ccache\/bin:/}"
   if [[ -f $cfg ]]; then
     echo "Update previous ${cfg##*/}"
-    PATH=$wo_distcc make O=$bdir silentoldconfig
+    PATH=$clean_path make O=$bdir oldconfig || exit 1
   fi
 
   # make menuconfig
 
-  local r=y
   echo
-  if [[ -f $cfg ]]; then
-    read -q r?"Make menuconfig? "
-    echo
+  if [[ -f $cfg ]] && read -q ?"Make menuconfig? "; then
+    PATH=$clean_path make O=$bdir menuconfig
   fi
-  [[ $r = y ]] && PATH=$wo_distcc make O=$bdir menuconfig
+  echo
 
-  PATH=$wo_distcc make O=$bdir modules_prepare
+  PATH=$clean_path make O=$bdir modules_prepare || exit 1
 
   # make
 
   echo
   if [[ -f $cfg ]]; then
-    read -q r?"Build kernel? "
+    case `read -ek ?"Build kernel ([y], distcc-[p]ump or [c]cached)? "` in
+      y) echo; time make O=$bdir -j4 || exit 1;;
+      p) echo; time pump make O=$bdir -j21 -l4 || exit 1;;
+      c) echo
+         ccache -p | grep cache_dir\ =
+         [[ $PATH != *ccache* ]] && export PATH="/usr/lib/ccache/bin:${PATH}"
+         time make O=$bdir -j4 || exit 1;;
+      ?) echo -n "\nSkipped.\n"
+    esac
     echo
   fi
-  # [[ $r = y ]] && time pump make O=$bdir -j21 -l4
-  [[ $r = y ]] && time make O=$bdir -j4
-  [[ $? != 0 ]] && return
 
-  # initramfs
+  if read -q ?"Rebuild modules? "; then
+    echo
+    emerge -q @module-rebuild || exit 1
+  fi
+  echo
 
-  # backup previous images
+  make O=$bdir modules_install || exit 1
+
+  mount /boot &> /dev/null || exit 1
+
   local old=/boot/old
   mkdir -p $old
-  for i in /boot/initramfs-*; do
-    echo "Backup $i to $old"
-    mv $i $old/$i.old
-  done
+  _backup_boot
 
-  local susp_conf=/etc/suspend.conf
-  local susp_resume=/usr/lib/suspend/resume
-
-  if [[ -f $susp_conf && -f $susp_resume ]]; then
-    # enable resume from hibernate
-
-    local ovr=/var/lib/genkernel/overlay
-    local lrc=/usr/share/genkernel/defaults/linuxrc
-
-    cp $lrc{,.uswsusp}
-    cat $lrc | awk '!n  { print "swsusp_resume() {\n\t/sbin/resume\n}\n"; --n } /^$/ { --n } 1' n=2 > $lrc.uswsusp
-
-    mkdir -p $ovr/etc $ovr/sbin
-    cp $susp_conf $ovr/etc
-    cp $susp_resume $ovr/sbin
-
-    genkernel --kerneldir=$bdir --kernel-config=$cfg --linuxrc=$lrc.uswsusp --initramfs-overlay=$ovr initramfs
-  else
-    genkernel --kerneldir=$bdir --kernel-config=$cfg initramfs
-  fi
-
-  # make @module-rebuild
-
-  read -q ?"Rebuild modules? "
-  if [[ $? = 0 ]]; then
+  # initramfs
+  if read -q ?"Build initramfs? "; then
     echo
-    emerge -q @module-rebuild
+
+    # Fix for genkernel:
+    # ERROR: Cannot determine KERNEL_ARCH without $SUB!
+    # ERROR: Cannot determine KERNEL_ARCH without $VER!
+    if ! grep -q '^VERSION =' $bdir/Makefile; then
+      printf "Applying patch for genkernel issue... "
+      grep -E '^((|EXTRA)VERSION|(PATCH|SUB)LEVEL) =' $src/Makefile \
+      >> $bdir/Makefile \
+      && echo "done" \
+      || echo "skipped"
+    fi
+
+    local susp_conf=/etc/suspend.conf
+    local susp_resume=/usr/lib/suspend/resume
+
+    if [[ -f $susp_conf && -f $susp_resume ]]; then
+      # enable resume from hibernate
+
+      local ovr=/var/lib/genkernel/overlay
+      local lrc=/usr/share/genkernel/defaults/linuxrc
+
+      cp $lrc{,.uswsusp}
+      cat $lrc | awk '!n  { print "swsusp_resume() {\n\t/sbin/resume\n}\n"; --n } /^$/ { --n } 1' n=2 > $lrc.uswsusp
+
+      mkdir -p $ovr/etc $ovr/sbin
+      cp $susp_conf $ovr/etc
+      cp $susp_resume $ovr/sbin
+
+      if ! genkernel --kerneldir=$bdir --kernel-config=$cfg \
+        --loglevel=3 \
+        --linuxrc=$lrc.uswsusp --initramfs-overlay=$ovr \
+        --firmware --compress-initramfs --compress-initramfs-type=lz4 \
+        initramfs
+      then
+        _restore_boot
+        exit 1
+      fi
+    else
+      if ! genkernel --kerneldir=$bdir --kernel-config=$cfg \
+        --loglevel=3 \
+        --firmware --compress-initramfs --compress-initramfs-type=lz4 \
+        initramfs
+      then
+        _restore_boot
+        exit 1
+      fi
+    fi
   fi
 
-  mount /boot &> /dev/null
-  make O=$bdir modules_install
-  make O=$bdir install
-
-  # upd /boot
+  if ! make O=$bdir install; then
+    _restore_boot
+    exit 1
+  fi
 
   echo
-  mv /boot/*.old $old
-  grub-upd
+  mv /boot/*.old $old/
+  grub-mkconfig -o /boot/grub/grub.cfg
   echo
 
-  # backup
-
-  local bak_dir=~/backup
-  local bak_file=.config-${name#*-}
-
-  mkdir -p $bak_dir
+  # Restore
   cp $cfg $src/${cfg##*/}
-  cp $cfg $bak_dir/$bak_file
 
-  [[ $? = 0 ]] && echo "${cfg##*/} backup was made at $bak_dir/$bak_file"
   echo "Done!"
 
-  cd $wd
+  popd
 }
 
 bkrn

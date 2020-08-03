@@ -11,6 +11,9 @@ if [ -f $PICOM_INVERT ]; then
   picom -b
 else
   picom -b --invert-color-include '
+    qutebrowser\" ||
+    class_g=\"GoldenDict\" ||
+    class_g=\"feh\" ||
     WM_WINDOW_ROLE@:s = "GtkFileChooserDialog" ||
     name *?= "gnumeric"
   '

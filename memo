@@ -1,5 +1,6 @@
 #!/bin/bash
 
+TMPDIR=${TMPDIR:-/tmp}
 memo=$MY_DOCS/_misc/memo
 tmp="${TMPDIR:-/tmp}"
 
