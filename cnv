@@ -213,7 +213,7 @@ EOF
 videos() {
   if (( ! $# )); then
     cat <<EOF
-Converts videos from list (mp4, 640x480, 1400 kbps)
+Converts videos from list (mp4, 2000 kbps, aac vbr 3)
 $(_usage) <list>
 EOF
     return 1
@@ -262,24 +262,26 @@ _video() {
   (( $(bc <<< ${A[1]}/${A[0]}) < 60000 )) && A="-c:a copy" \
                                           || A="-c:a libfdk_aac -ar 44100 -vbr 3"
 
-  (( $BR_V > 1400000 )) && BR_V=2000000
+  (( $BR_V > 2000000 )) && BR_V=2000000
 
   # local vf="scale=640:trunc(ow/a/2)*2"
 
   # CCW rotation
-  # local vf="transpose=2"
+  #local vf="transpose=2"
+
+  local out="_${1%.*}.mp4"
 
   # TODO use film in parallel and with -passlogfile
   ffmpeg -i "$1" -v quiet -hide_banner -y \
          -c:v libx264 -x264-params threads=4 $BV -b:v $BR_V ${vf:+-vf "$vf"}  \
-         $A "_${1%.*}.mp4" >/dev/null
+         $A "$out" >/dev/null
 
   if (( $? )); then
     printf e
     _log "CNV $1" >> "$ERR"
-  else
+  elif [[ -f "$out" ]]; then
     rm "$1"
-    mv "_${1%.*}.mp4" "${1%.*}.mp4"
+    mv "$out" "${1%.*}.mp4"
     printf .
   fi
 }
