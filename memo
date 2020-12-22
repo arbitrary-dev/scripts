@@ -54,11 +54,11 @@ m() {
     local list=(`gpg -qd $memo | cut -d' ' -f1`)
     echo ${list[@]}
   elif (( $# == 1 )); then
-    local list="`gpg -qd $memo | grep -i $1`"
+    local list="`gpg -qd $memo | grep -iE ^$1`"
     show "$list"
   else
     local q=`join_by \| $*`
-    local list="`gpg -qd $memo | grep -iE $q`"
+    local list="`gpg -qd $memo | grep -iE ^$q`"
     show "$list"
   fi
 }
