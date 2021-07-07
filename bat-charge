@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 bat=/sys/class/power_supply/BAT0
 start=$bat/charge_control_start_threshold
@@ -11,9 +11,11 @@ fi
 
 if (( $# )); then
   if (( $1 == 100 )); then
-    echo 0 > $start; echo 100 > $end
+    echo 0 > $start || exit 1
+    echo 100 > $end || exit 1
   elif (( $1 >= 0 && $2 >= 1 && $1 < $2 )); then
-    echo $1 > $start; echo $2 > $end
+    echo $1 > $start || exit 1
+    echo $2 > $end   || exit 1
   else
     echo "Wrong parameters!"
     return 1
