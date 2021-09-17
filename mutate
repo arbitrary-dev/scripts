@@ -130,12 +130,12 @@ def write(df):
 
         fname = row[f_filename]
         if filename(filepath_orig) == fname:
-          os.rename(filepath_temp, filepath_orig)
+          sh.move(filepath_temp, filepath_orig)
         else:
           d = path.dirname(filepath_orig)
           d = (d + '/') if d else ""
           new_filepath = d + fname + ext
-          os.rename(filepath_temp, new_filepath)
+          sh.move(filepath_temp, new_filepath)
           print("\nRENAMED: %s -> %s" % (filepath_orig, new_filepath))
           os.remove(filepath_orig)
     finally:

@@ -3,6 +3,16 @@
 # class=`xprop | grep WM_CLASS | cut -d\" -f4`
 # compton -b --invert-color-include "class_g=\"$class\""
 
-pkill compton \
-|| compton -b --invert-color-include "class_g=\"qutebrowser\" ||
-     class_g=\"Gnumeric\" || class_g=\"GoldenDict\" || class_g=\"feh\""
+PICOM_INVERT=$TMPDIR/.picom-invert
+
+pkill picom
+if [ -f $PICOM_INVERT ]; then
+  rm $PICOM_INVERT
+  picom -b
+else
+  picom -b --invert-color-include '
+    WM_WINDOW_ROLE@:s = "GtkFileChooserDialog" ||
+    name *?= "gnumeric"
+  '
+  touch $PICOM_INVERT
+fi

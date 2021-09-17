@@ -31,13 +31,13 @@ _usage() {
   printf "Usage: ${0##*/}$func"
 }
 
-ylwf="\e[33m"
+redhf="\e[91m"
 redf="\e[31m"
-redb="\e[44m"
+redb="\e[48;5;52m"
 rst="\e[0m"
 
 _param() {
-  local out="$redb$ylwf $1 $rst"
+  local out="$rst$redb$redhf $1 $rst"
   shift
   (( $# > 1 )) && out+=" $redf$1$rst" && shift
   out+=" $1"
@@ -214,13 +214,15 @@ videos() {
   if (( ! $# )); then
     cat <<EOF
 Converts videos from list (mp4, 2000 kbps, aac vbr 3)
-$(_usage) <list>
+$(_usage) [-ccw] <list>
 EOF
     return 1
   fi
 
   while (( $# )); do
-    if [[ $(_mimetype "$1") = video* ]]; then
+    if [[ "$1" = -ccw ]]; then
+      export ccw=1
+    elif [[ $(_mimetype "$1") = video* ]]; then
       [[ -n $LIST ]] && LIST+="\n"
       LIST+="$1"
     fi
@@ -266,13 +268,15 @@ _video() {
 
   # local vf="scale=640:trunc(ow/a/2)*2"
 
-  # CCW rotation
-  #local vf="transpose=2"
+  local vf
 
-  local out="_${1%.*}.mp4"
+  [[ ! -z "$ccw" ]] && vf+="${vf:+,}transpose=2"
+
+  local out=`dirname "$1"`"/_"`basename "$1"`
 
   # TODO use film in parallel and with -passlogfile
   ffmpeg -i "$1" -v quiet -hide_banner -y \
+         -map_metadata 0 -movflags use_metadata_tags \
          -c:v libx264 -x264-params threads=4 $BV -b:v $BR_V ${vf:+-vf "$vf"}  \
          $A "$out" >/dev/null
 
@@ -309,14 +313,32 @@ EOF
   printf "$files"
   output="${output:=output.mp4}"
   echo "to $output"
-  ffmpeg -f concat -safe 0 -i <(printf "$files") -c copy $output
+  # -c copy \
+  ffmpeg -f concat -safe 0 -i <(printf "$files") \
+    -c:a libfdk_aac -ar 22050 -profile:a aac_he -vbr 1 -ac 1 \
+    $output
 }
 
 cut() {
+  if (( ! $# )); then
+    cat <<EOF
+Cuts a media file.
+$(_usage) [options] <input.xxx> [03:06|start] [01:05 (dur)|finish] [input-out.yyy]
+EOF
+    return 1
+  fi
+
   [[ ! "$2" =~ beginning|start ]] && start="-ss $2"
   [[ ! "$3" =~ end|finish ]] && finish="-t $3"
-  local out=${4:-${1%.*}-cut.${1#*.}}
-  ffmpeg -i $1 $start $finish -c copy $out
+
+  local ext_in="${1##*.}"
+  local ext_out="${4##*.}"
+  local out="${4:-${1%.*}-cut.${ext_in}}"
+
+  local is_copy
+  [[ "$ext_in" = "$ext_out" ]] && is_copy="-c copy"
+
+  ffmpeg -i "$1" $start $finish $is_copy "$out"
 }
 
 film() {
@@ -327,15 +349,21 @@ $(_usage) [options] <input.xxx> [input-out.xxx]
 $(_param "-f|--from" "    00:00:00.000" "Starting time for video encoding")
 $(_param "-d|--duration" "00:00:00.000" "Total duration time for video encoding")
 
-$(_param "-b|--bitrate" "000k" "Video encoding bitrate")
-$(_param "-w|--width" "  000 " "Output video width (preserves aspect ratio)")
+$(_param "-b|--bitrate" "000k "  "Video encoding bitrate")
+$(_param "-crf" "        17-28" "Video encoding quality (lower is better)")
+$(_param "-w|--width" "  000  "  "Output video width (preserves aspect ratio)")
+$(_param "-r" "          000  "  "Frame rate")
+
+$(_param "--ultrafast|--superfast|--veryfast|--faster|--fast|--medium|--slow|--slower|--veryslow" "" "Video preset (def: fast)")
+$(_param "--film|--animation|--grain|--stillimage|--fastdecode|--zerolatency" "" "Tune")
+$(_param "-alow|-ahigh" "" "Audio preset (def: copy)")
 
 $(_param -cw "Rotate 90° clockwise")
 $(_param -ccw "Rotate 90° counterclockwise")
 $(_param -2 "Perform only 2nd pass encoding")
 $(_param -sc "Copy subtitle stream")
 $(_param --slow "Use \"slow\" x264 encoding preset (def. \"fast\")")
-$(_param "-t|--threads" 2 "")
+$(_param "-t|--threads" "auto" "Number of encoding threads")
 $(_param --log "quiet|panic|fatal|error|warning|info|verbose|debug|trace" "")
 
 $(_param "-di|--deinterlace")
@@ -366,7 +394,11 @@ EOF
   fi
 
   local preset=fast
-  local threads=2
+  local tune
+
+  local audio="-c:a copy"
+  local threads
+  local LOG
 
   while [[ $# > 1 ]]; do
   case "$1" in
@@ -379,12 +411,15 @@ EOF
   -b|--bitrate)
     BV="-b:v $2"
     shift ;;
+  -crf)
+    BV="-crf $2"
+    p2only=
+    shift ;;
   -an|--audio-normalize)
     [ -n "$AF" ] && AF+=,
     AF+="dynaudnorm=f=75:g=25:n=0:p=0.58" ;;
   -vf)
-    [ -n "$VF" ] && VF+=,
-    VF+=$2
+    VF=${VF:+$VF,}$2
     shift ;;
   -w|--width)
     [ -n "$VF" ] && VF+=,
@@ -415,10 +450,12 @@ EOF
     IFS=: read -ra eq <<< "$2"
     VF+=eq=contrast=${eq[0]-1}:brightness=${eq[1]-0}:gamma=${eq[2]-1}
     shift ;;
-  --slow)
-    preset=slow ;;
+  --ultrafast|--superfast|--veryfast|--faster|--fast|--medium|--slow|--slower|--veryslow)
+    preset=${1##--} ;;
+  --film|--animation|--grain|--stillimage|--fastdecode|--zerolatency)
+    tune=${1##--} ;;
   -2)
-    p2only= ;;
+    p2only="-pass 2" ;;
   -cr|--crop)
     [[ -n $VF ]] && VF+=,
     VF+=crop=$2
@@ -431,6 +468,13 @@ EOF
   --log)
     LOG="-v $2"
     shift ;;
+  -r)
+    VF="${VF:+$VF,}fps=$2"
+    shift ;;
+  -alow)
+    audio="-c:a libfdk_aac -ar 22050 -profile:a aac_he -vbr 1 -ac 1" ;;
+  -ahigh)
+    audio="-c:a libfdk_aac -ar 44100 -vbr 3" ;;
   *)
     (( $# > 2 )) && _log "Unknown argument '$1'!" && return 1
     break ;;
@@ -441,18 +485,28 @@ EOF
   local ARGS="\
     $FROM -i \"$1\" $DUR \
     -y -hide_banner \
-    -c:v libx264 $BV -preset:v $preset -x264-params threads=$threads \
-    ${VF:+ -vf $VF} \
-    ${AF:+ -af $AF} \
+    -c:v libx264 $BV -preset:v $preset ${tune+-tune $tune} \
+    ${threads:+-x264-params threads=$threads} \
+    ${VF:+-vf $VF} \
+    $audio \
+    ${AF:+-af $AF} \
     $scopy \
-    -c:a libfdk_aac -ar 44100 -vbr 3 \
-    $LOG"
+    ${TMPDIR:+-passlogfile $TMPDIR/ffmpeg2pass} \
+    $LOG \
+  "
+  # Use custom streams:
+  # -map 0:0 -map 0:2 -ac 2 \
 
   local out=${2:-${1%.*}-out.${1##*.}}
   _log "< $1"
 
-  [[ -z ${p2only+y} ]] && eval "ffmpeg $ARGS -pass 1 -f null /dev/null" || :
-  (( ! $? ))           && eval "ffmpeg $ARGS ${p2only--pass 2} \"$out\""
+  # WARN: When using option -an, you may eventually get a segfault # or a broken
+  # file. If so, remove option -an and replace by -vsync cfr to the first pass.
+  local pass1="ffmpeg $ARGS -pass 1 -an -f null /dev/null"
+  local pass2="ffmpeg $ARGS $p2only \"$out\""
+
+  [ ! ${p2only+y} ] && eval "$pass1" || :
+  (( ! $?        )) && eval "$pass2"
 
   (( ! $? )) && _log "> $out"
 }
