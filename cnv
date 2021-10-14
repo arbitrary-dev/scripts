@@ -66,10 +66,16 @@ EOF
     return 1
   fi
 
+  export audio="-c:a libfdk_aac -ac 2 -ar 44100 -vbr 4"
+
   while (( $# )); do
     if [[ "$1" =~ ^[1-5]$ ]]; then
-      export vbr="$1"
-    elif [[ $(_mimetype "$1") = audio* ]]; then
+      export audio="-c:a libfdk_aac -ac 2 -ar 44100 -vbr $1"
+    elif [[ "$1" = "-alow" ]]; then
+      export audio="-c:a libfdk_aac -ar 16000 -profile:a aac_he -vbr 1 -ac 1"
+    elif [[ "$1" =~ ^(-k|--keep)$ ]]; then
+      export keep=1
+    elif [[ $(_mimetype "$1") = audio* || "$1" = *.m4a ]]; then
       LIST+="\n$1"
     fi
     shift
@@ -84,17 +90,21 @@ _music_1() {
   [[ -z $1 ]] && return
 
   local out="${1%.*}.m4a"
-  ffmpeg -i "$1" \
+  local out2="${1%.*}-a.m4a"
+  ffmpeg -y -i "$1" \
     -hide_banner -v quiet \
     -map 0 -map -0:v \
-    -c:a libfdk_aac -ac 2 -ar 44100 -vbr ${vbr:-4} \
-    "$out"
+    $audio \
+    "$out2"
 
-  if (( ! $? )) && [[ -f "$out" ]]; then
-    [[ "$1" != "$out" ]] && rm "$1"
+  if (( ! $? )) && [[ -f "$out2" ]]; then
+    if [[ ! $keep && "$1" != "$out2" ]]; then
+      rm "$1"
+      mv "$out2" "$out"
+    fi
     printf .
   else
-    [[ "$1" != "$out" ]] && rm -f "$out"
+    [[ "$1" != "$out2" ]] && rm -f "$out2"
     printf e
   fi
 }
