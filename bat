@@ -15,7 +15,7 @@ full() {
 
 summary() {
   upower -i $BAT_UP \
-  | sed -En '/state|time to/{s/.*: +(.+)/\1/p}'
+  | sed -En '/state|time to|percentage/{s/.*: +(.+)/\1/p}'
 }
 
 fix() {
