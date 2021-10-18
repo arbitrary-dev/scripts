@@ -28,21 +28,17 @@ EOF
     return 1
   fi
 
-  START=$BAT_CL/charge_control_start_threshold
-  END=$BAT_CL/charge_control_end_threshold
-
-  if [ ! -f $START ]; then
-    echo "Not found: $START"
-    return 1
-  fi
+  START=($BAT_CL/charge*_start_threshold)
+  END=($BAT_CL/charge*_end_threshold)
+  [ ! -f $END ] && END=($BAT_CL/charge*_stop_threshold)
 
   if (( $# )); then
     if (( $1 == 100 )); then
-      echo 0 > $START || exit 1
-      echo 100 > $END || exit 1
+      sudo sh -c "echo 0 > $START" || exit 1
+      sudo sh -c "echo 100 > $END" || exit 1
     elif (( $1 >= 0 && $2 >= 1 && $1 < $2 )); then
-      echo $1 > $START || exit 1
-      echo $2 > $END   || exit 1
+      sudo sh -c "echo $1 > $START" || exit 1
+      sudo sh -c "echo $2 > $END"   || exit 1
     else
       echo "Wrong parameters!"
       return 1
