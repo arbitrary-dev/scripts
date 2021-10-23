@@ -19,12 +19,13 @@ BT_IDX=`rfkill list | grep -i bluetooth | head -1 | cut -d: -f1`
 if [ $MODE = performance ]; then
   sudo rfkill unblock $BT_IDX || exit 1
   echo "Bluetooth enabled"
-elif bluetoothctl info | grep -q "Connected: yes"; then
+elif pgrep bluetoothd >/dev/null && bluetoothctl info | grep -q "Connected: yes"; then
   echo
   echo "Unable to disable bluetooth, following devices connected:"
   bluetoothctl info | grep "Name:" | cut -d\  -f2-
 else
   sudo rfkill block $BT_IDX || exit 1
+  # TODO remove PCI?
   echo "Bluetooth disabled"
 fi
 
