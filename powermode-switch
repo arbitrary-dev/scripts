@@ -44,7 +44,8 @@ if [ $MODE = powersave ]; then
   PCI_DVCS+=(10de:0fb9)
   # ThinkPad ethernet
   PCI_DVCS+=(8086:15bb)
-  # TODO 0000:09:00.0 Samsung netbook ethernet
+  # Samsung netbook ethernet
+  PCI_DVCS+=(10ec:8136)
 
   IFS=$'\r\n' PCI_DVCS=($(lspci -nn | sed -En "s/([^ ]+) [^:]+: (.+) \[(`_join \| ${PCI_DVCS[@]}`)\].*/\1 \2/p"))
 
