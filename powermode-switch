@@ -7,7 +7,7 @@ echo "Current mode: $CURR"
 
 # CPU
 
-[ $CURR = performance ] && MODE=powersave || MODE=performance
+[ $CURR != powersave ] && MODE=powersave || MODE=performance
 for c in `ls -d /sys/devices/system/cpu/cpu[0-9]*`; do
   sudo sh -c "echo $MODE > $c/cpufreq/scaling_governor" || exit 1
 done
