@@ -476,6 +476,7 @@ EOF
     threads=$2
     shift ;;
   --log)
+    [ "$2" == "quiet" ] && local NOLOG=1
     LOG="-v $2"
     shift ;;
   -r)
@@ -492,6 +493,8 @@ EOF
   shift
   done
 
+  local passlogfile="${TMPDIR:+$TMPDIR/}ffmpeg2pass-`basename $1 .${1##*.}`"
+
   local ARGS="\
     $FROM -i \"$1\" $DUR \
     -y -hide_banner \
@@ -501,14 +504,14 @@ EOF
     $audio \
     ${AF:+-af $AF} \
     $scopy \
-    ${TMPDIR:+-passlogfile $TMPDIR/ffmpeg2pass} \
+    -passlogfile $passlogfile \
     $LOG \
   "
   # Use custom streams:
   # -map 0:0 -map 0:2 -ac 2 \
 
   local out=${2:-${1%.*}-out.${1##*.}}
-  _log "< $1"
+  [ -z "$NOLOG" ] && _log "< $1"
 
   # WARN: When using option -an, you may eventually get a segfault # or a broken
   # file. If so, remove option -an and replace by -vsync cfr to the first pass.
@@ -518,7 +521,7 @@ EOF
   [ ! ${p2only+y} ] && eval "$pass1" || :
   (( ! $?        )) && eval "$pass2"
 
-  (( ! $? )) && _log "> $out"
+  [ -z "$NOLOG" ] && (( ! $? )) && _log "> $out"
 }
 
 webm() {

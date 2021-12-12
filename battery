@@ -6,8 +6,8 @@ _usage() {
   printf "Usage: ${0##*/}$func"
 }
 
-BAT_UP=/org/freedesktop/UPower/devices/battery_BAT1
-BAT_CL=/sys/class/power_supply/BAT0
+BAT_UP=`upower --enumerate | grep -m1 battery`
+BAT_CL=/sys/class/power_supply/${BAT_UP#*_}
 
 full() {
   upower -i $BAT_UP
@@ -19,18 +19,18 @@ summary() {
 }
 
 fix() {
+  START=($BAT_CL/charge*_start_threshold)
+  END=($BAT_CL/charge*_end_threshold)
+  [ ! -f $END ] && END=($BAT_CL/charge*_stop_threshold)
+
   if (( ! $# )); then
     cat <<EOF
 Fix charge thresholds.
-$(_usage) <start> <end>
+$(_usage) `cat $START` `cat $END`
 $(_usage) 100
 EOF
     return 1
   fi
-
-  START=($BAT_CL/charge*_start_threshold)
-  END=($BAT_CL/charge*_end_threshold)
-  [ ! -f $END ] && END=($BAT_CL/charge*_stop_threshold)
 
   if (( $# )); then
     if (( $1 == 100 )); then
