@@ -43,7 +43,7 @@ show() {
   elif [[ -n "$list" ]]; then
     local res=`echo $list | cut -d' ' -f2- | sed s/%/%%/g`
     echo "$res"
-    printf "$res" | _copy
+    _copy <<< "$res"
   else
     echo "No entries!"
   fi
