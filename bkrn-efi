@@ -1,69 +1,73 @@
-#!/bin/bash
+#!/bin/sh
 
-BPATH=/mnt/ram/kernel-build
-BKPATH=/var/kernel-bak
+TMPDIR="${TMPDIR:-/tmp}"
+BPATH="$TMPDIR/bkrn"
+KPATH="/usr/src/linux"
+LOG="$BPATH/bkrn.log"
 
-prepare() {
-	mount /mnt/ram
-	mkdir -p $BPATH
-	chmod 1777 $BPATH
-	mkdir -p $BKPATH
-	chmod 1777 $BKPATH
+modules_prepare() {
+  mkdir -p "$BPATH"
+	if [ ! -f "$BPATH/.config" ]; then
+		if [ -f "$KPATH/.config" ]; then
+			mv -v "$KPATH/.config" "$BPATH"
+		else
+			echo "There is no kernel .config in neither $BPATH nor $KPATH !"
+			exit 1
+		fi
+	fi
+	make -C "$KPATH" mrproper
+  PATH="/usr/lib/ccache/bin:${PATH}" \
+  CCACHE_DIR="/var/cache/ccache" \
+	make -C $KPATH O=$BPATH modules_prepare
+  cp -v "$BPATH/.config" "$KPATH/.config"
 }
 
 build() {
-	if [ ! -d "$BPATH" ] || [ ! -d "$BKPATH" ]; then
-		echo "Do \"bkrn prepare\" before run."
-		exit
-	fi
-	cd /usr/src/linux
+  mkdir -p "$BPATH"
 	if [ ! -f "$BPATH/.config" ]; then
-		if [ -f "$BKPATH/.config" ]; then
-			cp $BKPATH/.config $BPATH
+		if [ -f "$KPATH/.config" ]; then
+			mv -v "$KPATH/.config" "$BPATH"
 		else
-			echo "There is no kernel .config in neither $BPATH nor $BKPATH !"
-			exit
+			echo "There is no kernel .config in neither $BPATH nor $KPATH !"
+			exit 1
 		fi
 	fi
-	make mrproper
-	make O=$BPATH silentoldconfig
-	make O=$BPATH menuconfig
-	make O=$BPATH modules_prepare
-	make O=$BPATH -j8
-	if [ $? -ne 0 ]; then
-		echo "Build failed!"
-		exit
-	fi
-	emerge --ask @module-rebuild
-	cp $BPATH/.config $BKPATH/.config-bak-$(date +%F)
-}
 
-initramfs() {
-	rm /var/tmp/genkernel/init*
-	genkernel --kerneldir=$BPATH --kernel-config=$BPATH/.config initramfs
-	if [ $? -ne 0 ]; then
-		echo "Initramfs creation failed!"
-		exit
-	fi
+  KNAME=`ls -ld /usr/src/linux | awk '{print $NF}'`
+
+  printf "Cleaning up $KNAME... "
+	make -C "$KPATH" mrproper &>"$LOG" && echo "done" || echo "FAILED"
+
+  THREADS=`sed -nE 's/siblings\s+: ([0-9]+)/\1/p' /proc/cpuinfo | head -1`
+  THREADS=$(($THREADS + 1))
+
+  printf "Compiling $KNAME using $THREADS threads... "
+  PATH="/usr/lib/ccache/bin:${PATH}" \
+  CCACHE_DIR="/var/cache/ccache" \
+  make -C "$KPATH" O="$BPATH" -j$THREADS &>>"$LOG"
+  if (( ! $? )); then
+    echo "done"
+    emerge --ask --quiet-build @module-rebuild
+  else
+    echo "FAILED"
+  fi
+  cp -v "$BPATH/.config" "$KPATH/.config"
 }
 
 install() {
-	cd /usr/src/linux
-	make O=$BPATH modules_install
-	mount /mnt/efi
-	cp $BPATH/arch/x86/boot/bzImage /mnt/efi/efi/boot/bootx64.efi
-	cp /var/tmp/genkernel/init* /mnt/efi/efi/boot/initramfs.img
-	if [ $? -eq 0 ]; then
-		echo "EFI stubbed!"
-	fi
-}
+  if [ ! -d "$BPATH" ]; then
+    echo "No $BPATH available!"
+    return 1
+  fi
 
-backup() {
-	cp $BPATH/.config $BKPATH
-	cp $BPATH/arch/x86/boot/bzImage $BKPATH/bootx64.efi
-	cp /var/tmp/genkernel/init* $BKPATH/initramfs.img
-	if [ $? -eq 0 ]; then
-		echo "Backup made!"
+  printf "Installing modules... "
+	make -C "$KPATH" O="$BPATH" modules_install &>>"$LOG" && echo "done" || echo "FAILED"
+
+	mount /boot
+  echo "Installing kernel... "
+  if make -C "$KPATH" O="$BPATH" install &>>"$LOG"; then
+    K=`ls -t /boot/vmlinuz-* | head -1`
+    cp -v "$K" /boot/EFI/boot/bootx64.efi
 	fi
 }
 
