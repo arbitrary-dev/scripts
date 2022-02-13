@@ -1,7 +1,9 @@
 #!/bin/sh
 
+TMPDIR="${TMPDIR:-/tmp}"
+
 file=$MY_DOCS/_misc/expenses
-temp=`mktemp .expenses_XXXX`
+temp=`mktemp $TMPDIR/.expenses_XXXX`
 
 read -sp "GPG password: " pass
 echo
