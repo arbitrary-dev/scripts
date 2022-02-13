@@ -28,12 +28,13 @@ usb_name=`udevadm info --query=path -n $main_dev | cut -d/ -f6`
 usb=/sys/bus/usb/devices/$usb_name
 name=`cat $usb/product`
 
-sudo sh -c "
-  printf 'Setting autosuspend for USB $usb_name... '
-  echo auto > $usb/power/control
-  echo 0 > $usb/power/autosuspend_delay_ms
-  echo OK
-"
+# TODO try without
+#sudo sh -c "
+#  printf 'Setting autosuspend for USB $usb_name... '
+#  echo auto > $usb/power/control
+#  echo 0 > $usb/power/autosuspend_delay_ms
+#  echo OK
+#"
 
 _IFS=$IFS
 IFS=$'\n'
@@ -63,10 +64,11 @@ else
   sleep 3
 fi
 
-sudo sh -c "
-  printf 'Unbinding USB $usb_name... '
-  echo $usb_name > /sys/bus/usb/drivers/usb/unbind
-  echo OK
-"
+# TODO breaks system suspension, try `usb_modeswitch --std-eject` instead
+#sudo sh -c "
+#  printf 'Unbinding USB $usb_name... '
+#  echo $usb_name > /sys/bus/usb/drivers/usb/unbind
+#  echo OK
+#"
 
 echo "'$name' should be safe to eject now."
