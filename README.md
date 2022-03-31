@@ -79,3 +79,7 @@ Dependencies:
 - `python3`
 - `mutagen`
 - `prompt_toolkit`
+
+### smb
+
+Utility to use Samba sharing instance.

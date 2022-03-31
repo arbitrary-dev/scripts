@@ -1,0 +1,65 @@
+#!/bin/sh
+
+start() {
+  mkdir -p $TMPDIR/samba
+  sudo chown nobody $TMPDIR/samba
+  sudo chmod g+w $TMPDIR/samba
+  sudo rc-service samba start
+  local ip=`ifconfig | grep -A1 ^wl | tail -1 | awk '{print $2}'`
+  local dir=`sed -nE 's/^\[(.+)]/\1/p' /etc/samba/smb.conf | tail -1`
+  echo "//$ip/$dir"
+}
+
+stop() {
+  sudo rc-service samba stop
+}
+
+connect() {
+  if (( ! $# )); then
+    cat <<EOF
+Connects to Samba sharing instance.
+
+Usage: ${0##*/} ${FUNCNAME[0]} <ip|fullpath>
+where 'fullpath' is like: //<ip>/public
+EOF
+    return 1
+  fi
+
+  local mnt="/mnt/samba"
+  local fullpath="$1"
+  [[ "$fullpath" != //* ]] && fullpath="//$1/public"
+
+  sudo mkdir -p $mnt || return 1
+  sudo mount $fullpath $mnt || return 1
+
+  pushd $mnt
+}
+
+disconnect() {
+  local mnt="/mnt/samba"
+  [[ "$PWD" == $mnt* ]] && popd $mnt
+  sudo umount $mnt || return 1
+  sudo rm -d $mnt
+}
+
+if (( ! $# )); then
+  funcs=(`declare -F | cut -d\  -f3 | tr '\n' '|'`)
+  cat <<EOF
+Samba sharing instance management.
+
+Usage: ${0##*/} <${funcs%|}>
+EOF
+else
+  cmds=(`declare -F | cut -d\  -f3 | sed -n "/^$1.*/p"`)
+  if (( ${#cmds[@]} == 1 )); then
+    shift
+    $cmds "$@"
+  elif (( ${#cmds[@]} > 1 )); then
+    echo "Several commands matched:"
+    for c in ${cmds[@]}; do echo $c; done
+    exit 1
+  else
+    echo "No such command '$1'"
+    exit 1
+  fi
+fi
