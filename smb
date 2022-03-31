@@ -1,10 +1,11 @@
 #!/bin/sh
 
 start() {
-  mkdir -p $TMPDIR/samba
-  sudo chown nobody $TMPDIR/samba
-  sudo chmod g+w $TMPDIR/samba
-  sudo rc-service samba start
+  TMPDIR=${TMPDIR:-/tmp}
+  mkdir -p $TMPDIR/samba || return 1
+  sudo chown nobody $TMPDIR/samba || return 1
+  sudo chmod g+w $TMPDIR/samba || return 1
+  sudo rc-service samba start || return 1
   local ip=`ifconfig | grep -A1 ^wl | tail -1 | awk '{print $2}'`
   local dir=`sed -nE 's/^\[(.+)]/\1/p' /etc/samba/smb.conf | tail -1`
   echo "//$ip/$dir"
@@ -27,10 +28,22 @@ EOF
 
   local mnt="/mnt/samba"
   local fullpath="$1"
-  [[ "$fullpath" != //* ]] && fullpath="//$1/public"
+
+  if [[ "$fullpath" != //* ]]; then
+    if [[ "$1" =~ ^\.?[0-9]+$ ]]; then
+      local iface=`ifconfig -s | grep -oE '^wl\S+'`
+      local prefx=`ifconfig $iface | grep -oEm1 '[0-9]+\.[0-9]+\.[0-9]+\.' | head -1`
+      local ip="$prefx${1#.}"
+    else
+      local ip="$1"
+    fi
+    fullpath="//$ip/public"
+  fi
 
   sudo mkdir -p $mnt || return 1
+  printf "Mounting $fullpath "
   sudo mount $fullpath $mnt || return 1
+  echo "done"
 
   pushd $mnt
 }
