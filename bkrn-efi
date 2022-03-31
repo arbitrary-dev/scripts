@@ -41,6 +41,7 @@ build() {
   THREADS=`sed -nE 's/siblings\s+: ([0-9]+)/\1/p' /proc/cpuinfo | head -1`
   THREADS=$(($THREADS + 1))
 
+  echo "Logs: $LOG"
   printf "Compiling $KNAME using $THREADS threads... "
   PATH="/usr/lib/ccache/bin:${PATH}" \
   CCACHE_DIR="/var/cache/ccache" \
@@ -52,6 +53,11 @@ build() {
     echo "FAILED"
   fi
   cp -v "$BPATH/.config" "$KPATH/.config"
+}
+
+initramfs() {
+  # Configured by /etc/genkernel.conf
+  genkernel initramfs
 }
 
 install() {
@@ -66,7 +72,7 @@ install() {
 	mount /boot
   echo "Installing kernel... "
   if make -C "$KPATH" O="$BPATH" install &>>"$LOG"; then
-    K=`ls -t /boot/vmlinuz-* | head -1`
+    K=`ls -t /boot/vmlinuz* | head -1`
     cp -v "$K" /boot/EFI/boot/bootx64.efi
 	fi
 }
