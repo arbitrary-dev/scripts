@@ -61,7 +61,7 @@ music() {
   if (( ! $# )); then
     cat <<EOF
 Convert tracks from list (libfdk_aac, 2ch, 44.1 kHz)
-$(_usage) [vbr=4] <list>
+$(_usage) [--vbr=4|--alow] [-k|--keep] <list>
 EOF
     return 1
   fi
@@ -69,9 +69,9 @@ EOF
   export audio="-c:a libfdk_aac -ac 2 -ar 44100 -vbr 4"
 
   while (( $# )); do
-    if [[ "$1" =~ ^[1-5]$ ]]; then
-      export audio="-c:a libfdk_aac -ac 2 -ar 44100 -vbr $1"
-    elif [[ "$1" = "-alow" ]]; then
+    if [[ "$1" =~ ^--vbr=[1-5]$ ]]; then
+      export audio="-c:a libfdk_aac -ac 2 -ar 44100 -vbr ${1#*=}"
+    elif [[ "$1" = "--alow" ]]; then
       export audio="-c:a libfdk_aac -ar 16000 -profile:a aac_he -vbr 1 -ac 1"
     elif [[ "$1" =~ ^(-k|--keep)$ ]]; then
       export keep=1
@@ -300,6 +300,8 @@ _video() {
   fi
 }
 
+# TODO image + audio
+# ffmpeg -y -loop 1 -i image.jpg -i audio.m4a -c:v libx264 -tune stillimage -preset veryslow -crf 51 -r 1 -c:a copy -pix_fmt yuv420p -shortest -movflags +faststart video.mp4
 concat() {
   if (( ! $# )); then
     cat <<EOF
@@ -346,7 +348,7 @@ EOF
   local out="${4:-${1%.*}-cut.${ext_in}}"
 
   local is_copy
-  [[ "$ext_in" = "$ext_out" ]] && is_copy="-c copy"
+  [[ "$ext_in" == "$ext_out" ]] && is_copy="-c copy"
 
   ffmpeg -i "$1" $start $finish $is_copy "$out"
 }
