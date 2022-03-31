@@ -41,11 +41,9 @@ EOF
   fi
 
   sudo mkdir -p $mnt || return 1
-  printf "Mounting $fullpath "
+  echo "Mounting $fullpath ..."
   sudo mount $fullpath $mnt || return 1
-  echo "done"
-
-  pushd $mnt
+  echo "Mounted at $mnt"
 }
 
 disconnect() {
