@@ -91,8 +91,11 @@ def work(ticket, time='1h', comment='work'):
   def worklog_to_update(w):
     from datetime import datetime
     from dateutil.parser import parse as parse_date
-    return (parse_date(w.started).date() == datetime.today().date() and
-      w.comment == comment)
+    return (
+      parse_date(w.started).date() == datetime.today().date()
+      and w.comment == comment
+      and w.raw['author']['name'] == jira.current_user()
+    )
 
   ws = list(filter(worklog_to_update, jira.worklogs(ticket)))
   w = ws and ws[0] or None
