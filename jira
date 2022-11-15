@@ -2,7 +2,7 @@
 
 # Setup:
 #
-# pip3 install jira jsonpath-rw python-dateutil
+# pip install --user jira jsonpath-rw python-dateutil
 # export JIRA_USER=leather-man
 # export JIRA_PASS=boss-in-this-jim
 # export JIRA_DEF_PROJECT=GYM
