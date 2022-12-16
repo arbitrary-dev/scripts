@@ -370,7 +370,7 @@ $(_param "-r" "          000  "  "Frame rate")
 
 $(_param "--ultrafast|--superfast|--veryfast|--faster|--fast|--medium|--slow|--slower|--veryslow" "" "Video preset (def: fast)")
 $(_param "--film|--animation|--grain|--stillimage|--fastdecode|--zerolatency" "" "Tune")
-$(_param "-alow|-ahigh" "" "Audio preset (def: copy)")
+$(_param "-alow|-ahigh|-an" "" "Audio preset (def: copy)")
 
 $(_param -cw "Rotate 90° clockwise")
 $(_param -ccw "Rotate 90° counterclockwise")
@@ -389,7 +389,7 @@ chroma_spatial = 3
 luma_tmp       = 6
 chroma_tmp     = 4.5")
 $(_param "-ds|--deshake")
-$(_param "-an|--audio-normalize")
+$(_param "-anorm|--audio-normalize")
 
 $(_param -eq "contrast:brightness:gamma" \
 "\nApply eq flter.
@@ -429,7 +429,7 @@ EOF
     BV="-crf $2"
     p2only=
     shift ;;
-  -an|--audio-normalize)
+  -anorm|--audio-normalize)
     [ -n "$AF" ] && AF+=,
     AF+="dynaudnorm=f=75:g=25:n=0:p=0.58" ;;
   -vf)
@@ -490,6 +490,8 @@ EOF
     audio="-c:a libfdk_aac -ar 22050 -profile:a aac_he -vbr 1 -ac 1" ;;
   -ahigh)
     audio="-c:a libfdk_aac -ar 44100 -vbr 3" ;;
+  -an)
+    audio="-an" ;;
   *)
     (( $# > 2 )) && _log "Unknown argument '$1'!" && return 1
     break ;;
