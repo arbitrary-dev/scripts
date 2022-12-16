@@ -239,6 +239,8 @@ EOF
     shift
   done
 
+  # Two threads per video by default
+  #export threads=2
   export -f _video
   printf "$LIST" | parallel --will-cite _video
 
@@ -287,7 +289,7 @@ _video() {
   # TODO use film in parallel and with -passlogfile
   ffmpeg -i "$1" -v quiet -hide_banner -y \
          -map_metadata 0 -movflags use_metadata_tags \
-         -c:v libx264 -x264-params threads=4 $BV -b:v $BR_V ${vf:+-vf "$vf"}  \
+         -c:v libx264 -x264-params threads=${threads:-2} $BV -b:v $BR_V ${vf:+-vf "$vf"}  \
          $A "$out" >/dev/null
 
   if (( $? )); then
