@@ -39,7 +39,7 @@ unless ($a) {
     if (s/(.*)(<)/$dim\1$rstd\2/) {
         $a=1;
     } else {
-        s/(([ :][ \d]{2}){7})/$dim$&$rstd/;
+        s/(([ :][ 0-9]{2}){7})/$dim$&$rstd/;
     }
 }
 
@@ -61,18 +61,12 @@ s/( {4,5})($pfx$date){5}\K(($pfx$date){2}$sfx)/$red$&$rstc/g;
 s/<(.+)>/ $inv\1$rsti /;
 
 # Highlight holidays
-if (/$di/ .. /$rsd/) {
-    s/:(.+?):/ $red\1$rstc $dim/g;
-=fix
-# FIXME holidays on dimmed lines are broken
-    unless ($b) {
-        if (s/:(.+?):/ $red+\1+$rstc $dim/) {
-            $b=1;
-        } else {
-            s/(([ :][ \d]{2}){7})/$dim$&$rstd/;
-        }
-    }
-=cut
-} else {
-    s/:(.+?):/ $redb\1$rstc /g;
+if (m/^$di.+$rsd/) {
+    local $b = $&;
+    # Replace preserving dimming
+    $b =~ s/:(.+?):/ $red\1$rstc $dim/g;
+    s/^$di.+$rsd/$b/;
 }
+#FIXME preserve weekends
+s/(:( [0-9]|[0-9]{2})){1,}:/$redb$&$rstc/g;
+s/:/ /g;
