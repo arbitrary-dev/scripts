@@ -2,13 +2,14 @@
 
 start() {
   TMPDIR=${TMPDIR:-/tmp}
-  mkdir -p $TMPDIR/samba || return 1
-  sudo chown nobody $TMPDIR/samba || return 1
-  sudo chmod g+w $TMPDIR/samba || return 1
+  local target="$TMPDIR/samba"
+  mkdir -p "$target" || return 1
+  sudo chown nobody "$target" || return 1
+  sudo chmod g+w "$target" || return 1
   sudo rc-service samba start || return 1
   local ip=`ifconfig | grep -A1 ^wl | tail -1 | awk '{print $2}'`
   local dir=`sed -nE 's/^\[(.+)]/\1/p' /etc/samba/smb.conf | tail -1`
-  echo "//$ip/$dir"
+  echo "//$ip/$dir -> $target"
 }
 
 stop() {
