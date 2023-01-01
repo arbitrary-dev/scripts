@@ -9,24 +9,26 @@ modules_prepare() {
   mkdir -p "$BPATH"
 	if [ ! -f "$BPATH/.config" ]; then
 		if [ -f "$KPATH/.config" ]; then
-			mv -v "$KPATH/.config" "$BPATH"
+			sudo mv -v "$KPATH/.config" "$BPATH"
 		else
 			echo "There is no kernel .config in neither $BPATH nor $KPATH !"
 			exit 1
 		fi
 	fi
-	make -C "$KPATH" mrproper
-  PATH="/usr/lib/ccache/bin:${PATH}" \
-  CCACHE_DIR="/var/cache/ccache" \
-	make -C $KPATH O=$BPATH modules_prepare
-  cp -v "$BPATH/.config" "$KPATH/.config"
+	sudo sh -c '
+    make -C "'$KPATH'" mrproper
+    PATH="/usr/lib/ccache/bin:${PATH}" \
+    CCACHE_DIR="/var/cache/ccache" \
+    make -C '$KPATH' O='$BPATH' modules_prepare
+    cp -v "'$BPATH'/.config" "'$KPATH'/.config"
+  '
 }
 
 build() {
   mkdir -p "$BPATH"
 	if [ ! -f "$BPATH/.config" ]; then
 		if [ -f "$KPATH/.config" ]; then
-			mv -v "$KPATH/.config" "$BPATH"
+			sudo mv -v "$KPATH/.config" "$BPATH"
 		else
 			echo "There is no kernel .config in neither $BPATH nor $KPATH !"
 			exit 1
@@ -35,29 +37,42 @@ build() {
 
   KNAME=`ls -ld /usr/src/linux | awk '{print $NF}'`
 
+  echo
   printf "Cleaning up $KNAME... "
-	make -C "$KPATH" mrproper &>"$LOG" && echo "done" || echo "FAILED"
+	sudo make -C "$KPATH" mrproper &>"$LOG" && echo "done" || echo "FAILED"
+  echo
 
   THREADS=`sed -nE 's/siblings\s+: ([0-9]+)/\1/p' /proc/cpuinfo | head -1`
   THREADS=$(($THREADS + 1))
 
-  echo "Logs: $LOG"
-  printf "Compiling $KNAME using $THREADS threads... "
-  PATH="/usr/lib/ccache/bin:${PATH}" \
-  CCACHE_DIR="/var/cache/ccache" \
-  make -C "$KPATH" O="$BPATH" -j$THREADS &>>"$LOG"
-  if (( ! $? )); then
-    echo "done"
-    emerge --ask --quiet-build @module-rebuild
-  else
-    echo "FAILED"
-  fi
-  cp -v "$BPATH/.config" "$KPATH/.config"
+  sudo sh -c '
+    make -C "'$KPATH'" O="'$BPATH'" oldconfig
+    echo
+
+    echo "Logs: '$LOG'"
+    printf "Compiling '$KNAME' using '$THREADS' threads... "
+    PATH="/usr/lib/ccache/bin:${PATH}" \
+    CCACHE_DIR="/var/cache/ccache" \
+    make -C "'$KPATH'" O="'$BPATH'" -j'$THREADS' &>>"'$LOG'"
+    if (( ! $? )); then
+      echo "done"
+      emerge --ask --quiet-build @module-rebuild
+
+      echo
+      printf "Installing modules... "
+      make -C "'$KPATH'" O="'$BPATH'" modules_install &>>"'$LOG'" \
+      && echo "done" \
+      || echo "FAILED"
+    else
+      echo "FAILED"
+    fi
+    cp -v "'$BPATH'/.config" "'$KPATH'/.config"
+  '
 }
 
 initramfs() {
   # Configured by /etc/genkernel.conf
-  genkernel initramfs
+  sudo genkernel initramfs
 }
 
 install() {
@@ -66,15 +81,22 @@ install() {
     return 1
   fi
 
-  printf "Installing modules... "
-	make -C "$KPATH" O="$BPATH" modules_install &>>"$LOG" && echo "done" || echo "FAILED"
+	sudo mount /boot
 
-	mount /boot
   echo "Installing kernel... "
-  if make -C "$KPATH" O="$BPATH" install &>>"$LOG"; then
+  if sudo make -C "$KPATH" O="$BPATH" install &>>"$LOG"; then
     K=`ls -t /boot/vmlinuz* | head -1`
-    cp -v "$K" /boot/EFI/boot/bootx64.efi
+    sudo cp -v "$K" /boot/EFI/boot/bootx64.efi
+
+    # TODO install kernel as vmlinuz-<version>
+    echo
+    make -C "$KPATH" O="$BPATH" kernelrelease
+    echo "???"
 	fi
+
+  echo "Installing initramfs... "
+  I=`ls -t /boot/initramfs* | head -1`
+  sudo cp -v "$I" /boot/EFI/initramfs.img
 }
 
 restore() {
@@ -86,8 +108,30 @@ restore() {
 	fi
 }
 
-if [ "$1" == "" ]; then
-	build
+if (( ! $# )); then
+  target=`eselect kernel show | grep -oE '[0-9.]+'`
+  current=`uname -r | grep -oE '[0-9.]+'`
+
+  read -n1 -p "Build kernel $target (current: $current)? "; echo
+  if [ "$REPLY" == "y" ]; then
+    build || exit 1
+  fi
+
+  echo
+  read -n1 -p "Compile initramfs for kernel $target? "; echo
+  if [ "$REPLY" == "y" ]; then
+    initramfs || exit 1
+  fi
+
+  echo
+  read -n1 -p "Install kernel $target? "; echo
+  if [ "$REPLY" == "y" ]; then
+    install || exit 1
+  fi
+
+  echo
+  read -n1 -p "Have you compiled/installed necessary ext. modules (like rtw89)? "; echo
+  [ "$REPLY" != "y" ] && echo "Then do it!"
 else
 	$1
 fi
