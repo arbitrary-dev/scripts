@@ -48,7 +48,7 @@ show() {
   fi
 }
 
-m() {
+_memo_get() {
   check_memo
   check gpg
 
@@ -65,7 +65,7 @@ m() {
   fi
 }
 
-me() {
+_memo_edit() {
   check_memo
   check_tmpdir
   check shred
@@ -99,6 +99,6 @@ me() {
 
 case "$1" in
   --help|-h) echo "Usage: ${0##*/} --edit|-e | --help|-h | keys..." ;;
-  --edit|-e) me ;;
-  *)         m "$@" ;;
+  --edit|-e) _memo_edit ;;
+  *)         _memo_get "$@" ;;
 esac
