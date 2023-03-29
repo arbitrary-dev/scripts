@@ -83,3 +83,7 @@ Dependencies:
 ### smb
 
 Utility to use Samba sharing instance.
+
+### zstats
+
+Stats for Zswap & Zram.
