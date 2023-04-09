@@ -29,8 +29,11 @@ check_tmpdir() {
 join_by() { local IFS="$1"; shift; echo "$*"; }
 
 _copy() {
+  read -q ans?"Copy to clipboard? "
+  echo
+  [ "$ans" = n ] && return 0
   command -v xc &>/dev/null || return 1
-  xc && echo "Copied to clipboard!"
+  echo "$1" | xc && echo "Copied!"
 }
 
 show() {
@@ -41,7 +44,7 @@ show() {
   elif [[ -n "$list" ]]; then
     local res=`echo $list | cut -d' ' -f2- | sed s/%/%%/g`
     echo "$res"
-    _copy <<< "$res"
+    _copy "$res"
   else
     echo "No entries!"
   fi
