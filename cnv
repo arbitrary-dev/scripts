@@ -413,6 +413,7 @@ EOF
   local audio="-c:a copy"
   local threads
   local LOG
+  local misc=()
 
   while [[ $# > 1 ]]; do
   case "$1" in
@@ -493,8 +494,11 @@ EOF
   -an)
     audio="-an" ;;
   *)
-    (( $# > 2 )) && _log "Unknown argument '$1'!" && return 1
-    break ;;
+    if [ -f "$1" ]; then
+      break
+    else
+      misc+=("$1")
+    fi ;;
   esac
   shift
   done
@@ -512,6 +516,7 @@ EOF
     $scopy \
     -passlogfile $passlogfile \
     $LOG \
+    ${misc:+\"${misc[@]}\"} \
   "
   # Use custom streams:
   # -map 0:0 -map 0:2 -ac 2 \
