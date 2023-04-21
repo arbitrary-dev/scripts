@@ -62,6 +62,10 @@ Dependencies:
 - `jira`
 - `jsonpath-rw`
 
+### meminfo
+
+Stats for system memory + swap.
+
 ### memo
 
 Memorize staff? No more!
@@ -83,7 +87,3 @@ Dependencies:
 ### smb
 
 Utility to use Samba sharing instance.
-
-### zstats
-
-Stats for Zswap & Zram.

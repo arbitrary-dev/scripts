@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# Different memory stats.
+
+echo "=== MEMORY ==="
+free -h \
+| awk '{
+  if (NR==1) { print "       total   used  avail" }
+  else { printf "%-5s%7s%7s%7s\n", $1, $2, $3, $7 }
+}'
+
+# Swap
+
+echo -e "\n=== SWAP ==="
+swapon --show
+
+# Zswap
+
+if [ -d /sys/module/zswap ]; then
+  zs_info=`paste -d\  /sys/module/zswap/parameters/{compressor,zpool}`
+  echo -e "\n=== ZSWAP [$zs_info] ==="
+
+  zs_orig_kb=`awk '/Zswapped:/{print $2}' /proc/meminfo`
+  zs_orig_mb=$((${zs_orig_kb:-0} / 1024))
+  zs_used_kb=`awk '/Zswap:/{print $2}' /proc/meminfo`
+  zs_used_mb=$((${zs_used_kb:-0} / 1024))
+  zs_total_mb=`command bc -l <<< "
+    x = \
+    $(awk '/MemTotal:/{print $2 / 1024}' /proc/meminfo) \
+    * $(cat /sys/module/zswap/parameters/max_pool_percent) / 100 \
+    + 0.5 # rounding
+    scale = 0
+    print x/1
+  "`
+
+  echo "Orig: ${zs_orig_mb}M"
+  echo "Used: ${zs_used_mb}M / ${zs_total_mb}M"
+  if (($zs_orig_kb)); then
+    echo "Comp: $((($zs_orig_kb - $zs_used_kb) * 100 / $zs_orig_kb))%"
+  else
+    echo "Comp: 0%"
+  fi
+fi
+
+# Zram
+
+if [ -d /sys/block/zram0 ]; then
+  zr_info=`cut -d\[ -f2 /sys/block/zram0/comp_algorithm | cut -d\] -f1`
+  echo -e "\n=== ZRAM [$zr_info] ==="
+
+  zr=(`cat /sys/block/zram0/mm_stat`)
+  zr_orig=${zr[0]:-0}
+  zr_orig_mb=$(($zr_orig/1024**2))
+  zr_used_mb=$((${zr[2]:-0}/1024**2))
+  zr_total_mb=$((${zr[3]:-0}/1024**2))
+  zr_comp=${zr[1]:-0}
+
+  echo "Orig: ${zr_orig_mb}M"
+  echo "Used: ${zr_used_mb}M / ${zr_total_mb}M"
+  echo "Comp: $((($zr_orig-$zr_comp)*100/$zr_orig))%"
+fi
