@@ -127,6 +127,29 @@ elif cmd == 'work':
 elif cmd == 'list':
   # TODO jira list
   print(args)
+  s = 'jakarta'
+  issues = jira.search_issues(
+    'project = "INT" AND text ~ "' + s + '"',
+    maxResults = 999,
+  )
+  def contains_s(i):
+    return (
+      (s in i.fields.summary)
+      or (s in i.fields.description)
+      or any(s in c.body for c in jira.comments(i))
+    )
+  def print_i(i):
+    id = i.key
+    summary = i.fields.summary
+    desc = i.fields.description
+    print(f"\n---\n\n{id} {summary}\n{desc}\n")
+    for c in filter(lambda c: s in c.body, jira.comments(i)):
+      author = c.author.displayName
+      comment = c.body
+      print(f"\n{author}:\n{comment}")
+  print(f"{len(issues)} issues found.")
+  for i in issues:
+    if contains_s(i):
+      print_i(i)
 else:
   p.print_help()
-
