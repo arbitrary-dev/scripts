@@ -36,7 +36,7 @@ if [ -d /sys/module/zswap ]; then
   echo "Orig: ${zs_orig_mb}M"
   echo "Used: ${zs_used_mb}M / ${zs_total_mb}M"
   if (($zs_orig_kb)); then
-    echo "Comp: $((($zs_orig_kb - $zs_used_kb) * 100 / $zs_orig_kb))%"
+    echo "Comp: $(( 100 - 100 * $zs_used_kb / $zs_orig_kb ))%"
   else
     echo "Comp: 0%"
   fi
@@ -57,5 +57,9 @@ if [ -d /sys/block/zram0 ]; then
 
   echo "Orig: ${zr_orig_mb}M"
   echo "Used: ${zr_used_mb}M / ${zr_total_mb}M"
-  echo "Comp: $((($zr_orig-$zr_comp)*100/$zr_orig))%"
+  if (($zr_orig)); then
+    echo "Comp: $(( 100 - 100 * $zr_comp / $zr_orig ))%"
+  else
+    echo "Comp: 0%"
+  fi
 fi
