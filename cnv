@@ -6,8 +6,7 @@ shopt -s expand_aliases
 alias _parallel="parallel --halt soon,fail=1 --will-cite --colsep=' '"
 
 _mimetype() {
-  file --mime-type "$1" | sed -E "s/.+ //"
-  # TODO check `sed -r|E` availability
+  file --mime-type "$1" | grep -o '\S\+$'
 }
 
 _size_bytes() {
@@ -57,7 +56,7 @@ EOF
   ffmpeg -i "$1" -hide_banner -c:v copy -c:a libfdk_aac -ac 2 -ar 44100 -vbr 3 "$2"
 }
 
-music() {
+audio() {
   if (( ! $# )); then
     cat <<EOF
 Convert tracks from list (libfdk_aac, 2ch, 44.1 kHz)
@@ -66,27 +65,27 @@ EOF
     return 1
   fi
 
-  export audio="-c:a libfdk_aac -ac 2 -ar 44100 -vbr 4"
+  export flags="-c:a libfdk_aac -ac 2 -ar 44100 -vbr 4"
 
   while (( $# )); do
     if [[ "$1" =~ ^--vbr=[1-5]$ ]]; then
-      export audio="-c:a libfdk_aac -ac 2 -ar 44100 -vbr ${1#*=}"
+      export flags="-c:a libfdk_aac -ac 2 -ar 44100 -vbr ${1#*=}"
     elif [[ "$1" = "--alow" ]]; then
-      export audio="-c:a libfdk_aac -ar 16000 -profile:a aac_he -vbr 1 -ac 1"
+      export flags="-c:a libfdk_aac -ar 16000 -profile:a aac_he -vbr 1 -ac 1"
     elif [[ "$1" =~ ^(-k|--keep)$ ]]; then
       export keep=1
-    elif [[ $(_mimetype "$1") = audio* || "$1" = *.m4a ]]; then
+    elif [[ $(_mimetype "$1") =~ ^(audio|video) || "$1" = *.m4a ]]; then
       LIST+="\n$1"
     fi
     shift
   done
 
-  export -f _music_1
-  printf "$LIST" | parallel --will-cite _music_1
+  export -f _audio_1
+  printf "$LIST" | parallel --will-cite _audio_1
   _log "\nDone!"
 }
 
-_music_1() {
+_audio_1() {
   [[ -z $1 ]] && return
 
   local out="${1%.*}.m4a"
@@ -94,7 +93,7 @@ _music_1() {
   ffmpeg -y -i "$1" \
     -hide_banner -v quiet \
     -map 0 -map -0:v \
-    $audio \
+    $flags \
     "$out2"
 
   if (( ! $? )) && [[ -f "$out2" ]]; then
@@ -773,7 +772,7 @@ EOF
 if (( ! $# )); then
   cat <<EOF
 Universal media convertor
-$(_usage) <ao|concat|covers|cut|gif|videos|photos|music|film|webm>
+$(_usage) <ao|audio|concat|covers|cut|gif|videos|photos|film|webm>
 EOF
 else
   CMD="$1"
