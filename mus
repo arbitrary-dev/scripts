@@ -1,0 +1,81 @@
+#!/bin/zsh
+
+_mus_find() {
+  [[ -z "$1" ]] && return
+
+  # Case-sensitive search
+  echo $1 | grep -q '[A-ZАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ]' && local cs
+
+  local fs
+  if [[ "$1" != */* ]]; then
+    # Search for directories first
+    fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}name "*$1*")"})
+    # ...then file names
+    (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type f -${cs-i}name "*$1*")"})
+  fi
+  # ...then path names for dirs
+  (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}path "*$1*")"})
+  # ...then path names for files
+  (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type f -${cs-i}path "*$1*")"})
+
+  if (( $#fs > 1 )) && [[ ! -v list ]]; then
+    for f in $fs; do >&2 echo ${f#"$dir"/}; done
+    >&2 echo
+    local ans="$1"
+    >&2 vared -p "Which one? " ans
+    >&2 echo
+    case "$ans" in
+      all) ;;
+      *) # Recurse!
+         _mus_find "$ans"
+         return $? ;;
+    esac
+  elif (( ! $#fs )); then
+    >&2 echo "No matches found!"
+    return 1
+  fi
+
+  for f in $fs; do echo $f; done
+}
+
+local dir=${MUS:-~/Music}
+
+while true; do
+  case "$1" in
+    s)  local shuffle
+        echo "Playlist will be shuffled!"
+        ;;
+    l)  local loop
+        echo "Loop enabled."
+        ;;
+    ls) local list ;;
+    *)  break ;;
+  esac
+  shift
+done
+
+if (( ! $# )); then
+  ls "$dir"
+  return
+fi
+
+local files=()
+while (( $# )); do
+  files+=(${(@f)"$(_mus_find "$1")"})
+  shift
+done
+(( ! $#files )) && return 1
+
+if [[ -v list ]]; then
+  for f in "${files[@]}"; do
+    if [[ -d "$f" ]]; then
+      echo "${f#"$dir"/}/"
+      ls "$f"
+    else
+      echo "${f#"$dir"/}"
+    fi
+  done
+else
+  for f in "${files[@]}"; do echo "$f"; done
+  mpv ${shuffle+--shuffle} ${loop+--loop-playlist} "${files[@]}"
+fi

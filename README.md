@@ -75,6 +75,15 @@ Dependencies:
 - `sys-apps/coreutils`
 - `x11-misc/xclip` is optional
 
+### mus
+
+CLI wrapper around the actual player, to ease every day struggle in playing a
+song.
+
+Dependencies:
+- `app-shells/zsh`
+- `media-video/mpv`
+
 ### mutate
 
 Sorts up that messed musical collection at last.
