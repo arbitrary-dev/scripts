@@ -124,25 +124,42 @@ if (( ! $# )); then
   current=`uname -r | grep -oE '[0-9.]+'`
 
   read -n1 -p "Build kernel $target (current: $current)? "; echo
-  if [ "$REPLY" == "y" ]; then
-    build || exit 1
-  fi
+  while true; do
+    if [ "$REPLY" == "y" ]; then
+      build || exit 1
+      break
+    elif [ "$REPLY" == "n" ]; then
+      break
+    else
+      read -n1 -p "What? "; echo
+    fi
+  done
 
   echo
   read -n1 -p "Compile initramfs for kernel $target? "; echo
-  if [ "$REPLY" == "y" ]; then
-    initramfs || exit 1
-  fi
+  while true; do
+    if [ "$REPLY" == "y" ]; then
+      initramfs || exit 1
+      break
+    elif [ "$REPLY" == "n" ]; then
+      break
+    else
+      read -n1 -p "What? "; echo
+    fi
+  done
 
   echo
   read -n1 -p "Install kernel $target? "; echo
-  if [ "$REPLY" == "y" ]; then
-    install || exit 1
-  fi
-
-  echo
-  read -n1 -p "Have you compiled/installed necessary ext. modules (like rtw89)? "; echo
-  [ "$REPLY" != "y" ] && echo "Then do it!"
+  while true; do
+    if [ "$REPLY" == "y" ]; then
+      install || exit 1
+      break
+    elif [ "$REPLY" == "n" ]; then
+      break
+    else
+      read -n1 -p "What? "; echo
+    fi
+  done
 else
 	$1
 fi

@@ -68,7 +68,7 @@ Stats for system memory + swap.
 
 ### memo
 
-Memorize staff? No more!
+Memorize stuff? No more!
 
 Dependencies:
 - `app-crypt/gnupg`

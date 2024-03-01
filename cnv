@@ -303,6 +303,7 @@ _video() {
 
 # TODO image + audio
 # ffmpeg -y -loop 1 -i image.jpg -i audio.m4a -c:v libx264 -tune stillimage -preset veryslow -crf 51 -r 1 -c:a copy -pix_fmt yuv420p -shortest -movflags +faststart video.mp4
+# or: -c:a libfdk_aac -ac 2 -ar 44100 -vbr 4
 concat() {
   if (( ! $# )); then
     cat <<EOF
@@ -349,7 +350,7 @@ EOF
   local out="${4:-${1%.*}-cut.${ext_in}}"
 
   local is_copy
-  [[ "$ext_in" == "$ext_out" ]] && is_copy="-c copy"
+  #[[ "$ext_in" == "$ext_out" ]] && is_copy="-c copy"
 
   ffmpeg -i "$1" $start $finish $is_copy "$out"
 }
