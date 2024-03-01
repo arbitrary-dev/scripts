@@ -12,8 +12,11 @@ echo
 
 gpg --batch --passphrase $pass -o $temp --yes -qd $file || exit 1
 
+touch -r $file $temp
 gnumeric $temp
 
-if gpg --batch --passphrase $pass -o $file --yes -qc $temp; then
+if [[ ! $temp -nt $file ]]; then
+  echo 'Nothing changed.'
+elif gpg --batch --passphrase $pass -o $file --yes -qc $temp; then
   echo 'Expenses were updated!'
 fi
