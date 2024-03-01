@@ -3,21 +3,17 @@
 TMPDIR="${TMPDIR:-/tmp}"
 
 file=$MY_DOCS/_misc/expenses
+
 temp=`mktemp $TMPDIR/.expenses_XXXX`
+trap "shred -u $temp" EXIT
 
 read -sp "GPG password: " pass
 echo
 
-gpg --batch --passphrase $pass -o $temp --yes -qd $file
-if (( $? )); then
-  shred -u $temp
-  exit 1
-fi
+gpg --batch --passphrase $pass -o $temp --yes -qd $file || exit 1
 
 gnumeric $temp
 
 if gpg --batch --passphrase $pass -o $file --yes -qc $temp; then
   echo 'Expenses were updated!'
 fi
-
-shred -u $temp
