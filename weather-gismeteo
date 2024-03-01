@@ -1,0 +1,60 @@
+#!/bin/sh
+
+if [ ${GM_TOKEN-x} = x ]; then
+  echo "GM_TOKEN not specified!"
+  exit 1
+fi
+
+API="https://api.gismeteo.net/v2"
+
+#     -s "'$API/weather/current/1365/?lang=en'" \
+#     -s "'$API/weather/forecast/1365/?lang=en&days=5'" \
+#     -s "'$API/search/cities/?lang=en&query=brussels'" \
+#     -s "'$API/city/1365?lang=en'" \
+
+#curl -H "'X-Gismeteo-Token: $GM_TOKEN'" \
+#     -vL "'$API/city/1365?lang=en'"
+#exit
+
+curl -H "'X-Gismeteo-Token: $GM_TOKEN'" \
+     -H "'Accept-Encoding: gzip'" \
+     -s "'$API/weather/forecast/1365/?lang=en&days=5'" \
+| gunzip --force \
+| jq -r \
+'
+  def temp_with_padding:
+    .temperature.air.C | tonumber | round
+    | (if fabs < 10 then " " else "" end) as $pad
+    | tostring + "°"
+    | if startswith("-") then . else "+" + . end
+    | $pad + .;
+
+  def wind_with_padding:
+    (.wind.speed.m_s|tonumber|round) as $a
+    | @text "\($a) m/s"
+    | if $a < 10 then " " + . else . end;
+
+  def fmt:
+    {
+      time: .date.local|split(" ")[1]|rtrimstr(":00"),
+      temp: temp_with_padding,
+      wind: wind_with_padding,
+      rh: @text "RH \(.humidity.percent)%",
+      uv: "",
+      prec: .precipitation|(
+        if .amount and (.amount|tonumber > 0)
+        then @text "  \(.amount) mm"
+        else "" end
+      ),
+      desc: ("  " + .description.full)
+    }
+    | @text "\(.time)  \(.temp) \(.wind)  \(.rh)\(.uv)\(.desc)\(.prec)";
+
+  .response
+  | group_by(.date.local|split(" ")[0])[]
+  | {(.[0].date.local|split(" ")[0]): [.[]|fmt]}
+  | to_entries[0]
+  | @text "\n\(.key)\n\n\(.value|join("\n"))"
+' \
+| less
+#> sample.json

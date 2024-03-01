@@ -96,3 +96,8 @@ Dependencies:
 ### smb
 
 Utility to use Samba sharing instance.
+
+### weather-gismeteo
+
+Query gismeteo.ru if you have a token. Ask b2b@gismeteo.ru for one.
+
