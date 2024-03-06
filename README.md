@@ -83,6 +83,7 @@ song.
 Dependencies:
 - `app-shells/zsh`
 - `media-video/mpv`
+- `sys-apps/util-linux` for `column`
 
 ### mutate
 

@@ -7,16 +7,17 @@ _mus_find() {
   echo $1 | grep -q '[A-ZАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ]' && local cs
 
   local fs
+  local ignore="-and -not ( -iname *.txt -or -iname *.chp )"
   if [[ "$1" != */* ]]; then
     # Search for directories first
     fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}name "*$1*")"})
     # ...then file names
-    (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type f -${cs-i}name "*$1*")"})
+    (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type f -${cs-i}name "*$1*" ${=ignore})"})
   fi
   # ...then path names for dirs
   (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}path "*$1*")"})
   # ...then path names for files
-  (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type f -${cs-i}path "*$1*")"})
+  (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type f -${cs-i}path "*$1*" ${=ignore})"})
 
   if (( $#fs > 1 )) && [[ ! -v list ]]; then
     for f in $fs; do >&2 echo ${f#"$dir"/}; done
@@ -45,10 +46,21 @@ while true; do
     s)  local shuffle
         echo "Playlist will be shuffled!"
         ;;
-    l)  local loop
+    lp) local loop
         echo "Loop enabled."
         ;;
     ls) local list ;;
+    ly) fs=(${(@f)"$(find "$dir"/_lyrics -type f -iname "*$2*.txt")"})
+        for f in $fs; do
+          echo
+          basename ${f%.txt}
+          basename ${f%.txt} | sed s/./=/g
+          echo
+          column -L $f
+          echo
+        done
+        return 0
+        ;;
     *)  break ;;
   esac
   shift
