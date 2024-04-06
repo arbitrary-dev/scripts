@@ -5,113 +5,120 @@
 # A.D. MMXXIV
 
 _ffind() {
-  find "$@" -type f -exec sh -c '
-    for f; do
-      file --brief --mime-type "$f" \
-      | grep -qE "^(audio|video)/" \
-      && echo "$f"
-    done
-  ' -- {} +
+	find "$@" -type f -exec sh -c '
+		for f; do
+			file --brief --mime-type "$f" \
+				| grep -qE "^(audio|video)/" \
+			&& echo "$f"
+		done
+	' -- {} +
 }
 
 _mus_find() {
-  (( `printf "$1" | wc -m` < 3 )) \
-  && >&2 echo "Try more letters!" \
-  && return
+	(( `printf "$1" | wc -m` < 3 )) \
+	&& >&2 echo "Try more letters!" \
+	&& return
 
-  # Case-sensitive search
-  unset cs
-  echo $1 | grep -q "[A-ZЁА-Я]" && local cs
+	# Case-sensitive search
+	unset cs
+	echo $1 | grep -q "[A-ZЁА-Я]" && local cs
 
-  local fs
-  if [[ "$1" != */* ]]; then
-    # Search for directories first
-    fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}name "*$1*")"})
-    # ...then file names
-    (( ! $#fs )) && fs=(${(@f)"$(_ffind "$dir"/ -${cs-i}name "*$1*")"})
-  fi
-  # ...then path names for dirs
-  (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}path "*$1*")"})
-  # ...then path names for files
-  (( ! $#fs )) && fs=(${(@f)"$(_ffind "$dir"/ -${cs-i}path "*$1*")"})
+	local fs
+	if [[ "$1" != */* ]]; then
+		# Search for directories first
+		fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}name "*$1*")"})
+		# ...then file names
+		(( ! $#fs )) && fs=(${(@f)"$(_ffind "$dir"/ -${cs-i}name "*$1*")"})
+	fi
+	# ...then path names for dirs
+	(( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}path "*$1*")"})
+	# ...then path names for files
+	(( ! $#fs )) && fs=(${(@f)"$(_ffind "$dir"/ -${cs-i}path "*$1*")"})
 
-  while (( $#fs > 1 )) && [[ ! -v list ]]; do
-    for f in $fs; do >&2 echo ${f#"$dir"/}; done
+	while (( $#fs > 1 )) && [[ ! -v list ]]; do
+		for f in $fs; do >&2 echo ${f#"$dir"/}; done
 
-    local REPLY="$1"
-    >&2 echo
-    if [ -z "${HOME##*com.termux*}" ]; then
-      # `vared -p` doesn't work in a subshell (Termux)
-      >&2 read REPLY?"Which one? "
-    else
-      >&2 vared -p "Which one? " REPLY
-    fi
-    >&2 echo
+		local REPLY="$1"
+		>&2 echo
+		if [ -z "${HOME##*com.termux*}" ]; then
+			# `vared -p` doesn't work in a subshell (Termux)
+			>&2 read REPLY?"Which one? "
+		else
+			>&2 vared -p "Which one? " REPLY
+		fi
+		>&2 echo
 
-    case "$REPLY" in
-      all) break ;;
-      q) return ;;
-      *) fs=(${(M)fs:#*$REPLY*}) ;;
-    esac
-  done
+		case "$REPLY" in
+			all) break ;;
+			q) return ;;
+			*) fs=(${(M)fs:#*$REPLY*}) ;;
+		esac
+	done
 
-  if (( ! $#fs )); then
-    >&2 echo "No matches found!"
-    return
-  fi
+	if (( ! $#fs )); then
+		>&2 echo "No matches found!"
+		return
+	fi
 
-  for f in $fs; do echo $f; done
+	for f in $fs; do echo $f; done
 }
 
 local dir=${MUS:-~/Music}
 
 while true; do
-  case "$1" in
-    s)  local shuffle
-        echo "Playlist will be shuffled!"
-        ;;
-    lp) local loop
-        echo "Loop enabled."
-        ;;
-    ls) local list ;;
-    ly) fs=(${(@f)"$(find "$dir"/_lyrics -type f -iname "*$2*.txt")"})
-        for f in $fs; do
-          echo
-          basename ${f%.txt}
-          basename ${f%.txt} | sed s/./=/g
-          echo
-          column -L $f
-          echo
-        done
-        return 0
-        ;;
-    *)  break ;;
-  esac
-  shift
+	case "$1" in
+		s)
+			local shuffle
+			echo "Playlist will be shuffled!"
+			;;
+		lp)
+			local loop
+			echo "Loop enabled."
+			;;
+		ls)
+			local list
+			;;
+		ly)
+			fs=(${(@f)"$(find "$dir"/_lyrics -type f -iname "*$2*.txt")"})
+			for f in $fs; do
+				echo
+				basename ${f%.txt}
+				basename ${f%.txt} | sed s/./=/g
+				echo
+				column -L $f
+				echo
+			done
+			return 0
+			;;
+		*)
+			break
+			;;
+	esac
+	shift
 done
 
 if (( ! $# )); then
-  ls "$dir"
-  return
+	ls "$dir"
+	return
 fi
 
 local files=()
 while (( $# )); do
-  files+=(${(@f)"$(_mus_find "$1")"})
-  shift
+	files+=(${(@f)"$(_mus_find "$1")"})
+	shift
 done
 (( ! $#files )) && return 1
 
 if [[ -v list ]]; then
-  for f in "${files[@]}"; do
-    if [[ -d "$f" ]]; then
-      echo "${f#"$dir"/}/"
-      ls "$f"
-    else
-      echo "${f#"$dir"/}"
-    fi
-  done
+	for f in "${files[@]}"; do
+		if [[ -d "$f" ]]; then
+			echo "${f#"$dir"/}/"
+			ls "$f"
+		else
+			echo "${f#"$dir"/}"
+		fi
+	done
 else
-  [ $#files = 1 ] && echo "$files"
-  mpv ${shuffle+--shuffle} ${loop+--loop-playlist} "${files[@]}"
+	[ $#files = 1 ] && echo "$files"
+	mpv ${shuffle+--shuffle} ${loop+--loop-playlist} "${files[@]}"
 fi
