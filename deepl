@@ -1,0 +1,26 @@
+#!/bin/sh
+
+if [ $# != 2 ]; then
+  >&2 cat <<EOF
+Usage: `basename $0` <FROM> <TO>
+
+Where FROM & TO are language tags, e.g. RU, EN, LV, GE, FR, JP.
+EOF
+  exit 1
+fi
+
+TS=`date +%s`$(printf '%03d' `shuf -i1-999 -n1`)
+FROM=$1
+TO=$2
+ID=`shuf -i10000000-99999900 -n1`
+
+while read -e; do
+
+ID=$(($ID + 1))
+curl -s 'https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs' \
+  -H 'content-type: application/json' \
+  --data-raw '{"jsonrpc":"2.0","method": "LMT_handle_jobs","params":{"jobs":[{"kind":"default","sentences":[{"text":"'"${REPLY//\"/\\\"}"'","id":1,"prefix":""}],"raw_en_context_before":[],"raw_en_context_after":[],"preferred_num_beams":4,"quality":"fast"}],"lang":{"target_lang":"'$TO'","source_lang_user_selected":"'$FROM'"},"priority":-1,"commonJobParams":{"mode":"translate","textType":"plaintext","browserType":1},"timestamp":'$TS'},"id":'$ID'}' \
+| jq .result.translations[].beams[].sentences[].text
+echo
+
+done

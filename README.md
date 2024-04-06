@@ -16,6 +16,16 @@ Dependencies:
 
 `ffmpeg` requires `media-libs/fdk-aac FraunhoferFDK` license.
 
+### deepl
+
+CLI for DeepL translator.
+
+Uses "Too many requests" API.
+
+Dependencies:
+- `app-misc/jq`
+- `net-misc/curl`
+
 ### dominant-color
 
 Returns dominant color of supplied image.
