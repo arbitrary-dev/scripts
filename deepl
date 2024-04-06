@@ -1,26 +1,47 @@
 #!/bin/sh
 
-if [ $# != 2 ]; then
-  >&2 cat <<EOF
-Usage: `basename $0` <FROM> <TO>
+# † In God We Trust †
+#
+# A.D. MMXXIV
 
-Where FROM & TO are language tags, e.g. RU, EN, LV, GE, FR, JP.
+if [ $# != 2 ]; then
+	>&2 cat <<EOF
+Usage: `basename $0` <SRC_LANG> <TRG_LANG>
+
+Languages are: RU, EN, LV, GE, FR, JP, etc.
 EOF
-  exit 1
+	exit 1
 fi
 
-TS=`date +%s`$(printf '%03d' `shuf -i1-999 -n1`)
-FROM=$1
-TO=$2
-ID=`shuf -i10000000-99999900 -n1`
+SRC_LANG=$1
+TRG_LANG=$2
 
-while read -e; do
+last_id="${TMPDIR:-/tmp}/.deepl-last-id"
+if [ -f "$last_id" ]; then
+	ID=`cat "$last_id"`
+	ID=$(($ID + 1))
+else
+	ID=$((`shuf -i1-9999 -n1` * 10000))
+fi
 
-ID=$(($ID + 1))
-curl -s 'https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs' \
-  -H 'content-type: application/json' \
-  --data-raw '{"jsonrpc":"2.0","method": "LMT_handle_jobs","params":{"jobs":[{"kind":"default","sentences":[{"text":"'"${REPLY//\"/\\\"}"'","id":1,"prefix":""}],"raw_en_context_before":[],"raw_en_context_after":[],"preferred_num_beams":4,"quality":"fast"}],"lang":{"target_lang":"'$TO'","source_lang_user_selected":"'$FROM'"},"priority":-1,"commonJobParams":{"mode":"translate","textType":"plaintext","browserType":1},"timestamp":'$TS'},"id":'$ID'}' \
-| jq .result.translations[].beams[].sentences[].text
-echo
+while read REPLY; do
+	REPLY=`echo "$REPLY" | sed 's/"/\\\"/g'`
+	TS=`date +%s`$(printf '%03d' `shuf -i1-999 -n1`)
 
+	curl -s 'https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs' \
+	     -H 'content-type: application/jso, etc.' \
+	    --data-raw '{"jsonrpc":"2.0","method":"LMT_handle_jobs","params":{"jobs":[{"kind":"default","sentences":[{"text":"'"$REPLY"'","id":1,"prefix":""}],"raw_en_context_before":[],"raw_en_context_after":[],"preferred_num_beams":1,"quality":"best"}],"lang":{"target_lang":"'$TRG_LANG'","source_lang_user_selected":"'$SRC_LANG'"},"priority":-1,"commonJobParams":{"mode":"translate","textType":"plaintext","browserType":1},"timestamp":'$TS'},"id":'$ID'}' \
+	| jq -r '
+		if .result then
+			.result.translations[].beams[].sentences[].text
+			| @text "[32m>\(.)[39m"
+		else
+			.error.message
+			| @text "[31m\"\(.)\"[39m"
+		end
+	'
+	echo
+
+	echo $ID > "$last_id"
+	ID=$(($ID + 1))
 done
