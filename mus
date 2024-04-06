@@ -1,39 +1,63 @@
-#!/bin/zsh
+#!/bin/zsh -i
+
+# † In God We Trust †
+#
+# A.D. MMXXIV
+
+_ffind() {
+  find "$@" -type f -exec sh -c '
+    for f; do
+      file --brief --mime-type "$f" \
+      | grep -qE "^(audio|video)/" \
+      && echo "$f"
+    done
+  ' -- {} +
+}
 
 _mus_find() {
-  [[ -z "$1" ]] && return
+  (( `printf "$1" | wc -m` < 3 )) \
+  && >&2 echo "Try more letters!" \
+  && return
 
   # Case-sensitive search
-  echo $1 | grep -q '[A-ZАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ]' && local cs
+  unset cs
+  echo $1 | grep -q "[A-ZЁА-Я]" && local cs
 
   local fs
-  local ignore="-and -not ( -iname *.txt -or -iname *.chp )"
   if [[ "$1" != */* ]]; then
     # Search for directories first
     fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}name "*$1*")"})
     # ...then file names
-    (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type f -${cs-i}name "*$1*" ${=ignore})"})
+    (( ! $#fs )) && fs=(${(@f)"$(_ffind "$dir"/ -${cs-i}name "*$1*")"})
   fi
   # ...then path names for dirs
   (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type d -${cs-i}path "*$1*")"})
   # ...then path names for files
-  (( ! $#fs )) && fs=(${(@f)"$(find "$dir"/ -type f -${cs-i}path "*$1*" ${=ignore})"})
+  (( ! $#fs )) && fs=(${(@f)"$(_ffind "$dir"/ -${cs-i}path "*$1*")"})
 
-  if (( $#fs > 1 )) && [[ ! -v list ]]; then
+  while (( $#fs > 1 )) && [[ ! -v list ]]; do
     for f in $fs; do >&2 echo ${f#"$dir"/}; done
+
+    local REPLY="$1"
     >&2 echo
-    local ans="$1"
-    >&2 vared -p "Which one? " ans
+    if [ -z "${HOME##*com.termux*}" ]; then
+      # `vared -p` doesn't work in a subshell (Termux)
+      >&2 read REPLY?"Which one? "
+    else
+      >&2 vared -p "Which one? " REPLY
+    fi
     >&2 echo
-    case "$ans" in
-      all) ;;
-      *) # Recurse!
-         _mus_find "$ans"
-         return $? ;;
+
+    case "$REPLY" in
+      all) break ;;
+      q) return ;;
+      *) fs=(${(M)fs:#*$REPLY*}) ;;
     esac
-  elif (( ! $#fs )); then
+  done
+
+  if (( ! $#fs )); then
     >&2 echo "No matches found!"
-    return 1
+    return
   fi
 
   for f in $fs; do echo $f; done
@@ -88,6 +112,6 @@ if [[ -v list ]]; then
     fi
   done
 else
-  for f in "${files[@]}"; do echo "$f"; done
+  [ $#files = 1 ] && echo "$files"
   mpv ${shuffle+--shuffle} ${loop+--loop-playlist} "${files[@]}"
 fi
