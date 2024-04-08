@@ -4,9 +4,12 @@
 #
 # A.D. MMXXIV
 
-if [ $# != 2 ]; then
+if [ $# -lt 2 ]; then
 	>&2 cat <<EOF
-Usage: `basename $0` <SRC_LANG> <TRG_LANG>
+Usage: `basename $0` <SRC_LANG> <TRG_LANG> [VAR]
+
+Translates stdin lines from SRC_LANG to TRG_LANG,
+providing VAR (default: 1) number of variants.
 
 Languages are: RU, EN, LV, GE, FR, JP, etc.
 EOF
@@ -15,6 +18,7 @@ fi
 
 SRC_LANG=$1
 TRG_LANG=$2
+VAR=${3:-1}
 
 last_id="${TMPDIR:-/tmp}/.deepl-last-id"
 if [ -f "$last_id" ]; then
@@ -30,7 +34,7 @@ while read REPLY; do
 
 	curl -s 'https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs' \
 	     -H 'content-type: application/jso, etc.' \
-	    --data-raw '{"jsonrpc":"2.0","method":"LMT_handle_jobs","params":{"jobs":[{"kind":"default","sentences":[{"text":"'"$REPLY"'","id":1,"prefix":""}],"raw_en_context_before":[],"raw_en_context_after":[],"preferred_num_beams":1,"quality":"best"}],"lang":{"target_lang":"'$TRG_LANG'","source_lang_user_selected":"'$SRC_LANG'"},"priority":-1,"commonJobParams":{"mode":"translate","textType":"plaintext","browserType":1},"timestamp":'$TS'},"id":'$ID'}' \
+	    --data-raw '{"jsonrpc":"2.0","method":"LMT_handle_jobs","params":{"jobs":[{"kind":"default","sentences":[{"text":"'"$REPLY"'","id":1,"prefix":""}],"raw_en_context_before":[],"raw_en_context_after":[],"preferred_num_beams":'$VAR',"quality":"best"}],"lang":{"target_lang":"'$TRG_LANG'","source_lang_user_selected":"'$SRC_LANG'"},"priority":-1,"commonJobParams":{"mode":"translate","textType":"plaintext","browserType":1},"timestamp":'$TS'},"id":'$ID'}' \
 	| jq -r '
 		if .result then
 			.result.translations[].beams[].sentences[].text
