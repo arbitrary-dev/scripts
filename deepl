@@ -11,7 +11,7 @@ Usage: `basename $0` <SRC_LANG> <TRG_LANG> [VAR]
 Translates stdin lines from SRC_LANG to TRG_LANG,
 providing VAR (default: 1) number of variants.
 
-Languages are: RU, EN, LV, GE, FR, JP, etc.
+Languages are: RU, EN, LV, DE, FR, JP, etc.
 EOF
 	exit 1
 fi
@@ -49,7 +49,7 @@ while read REPLY; do
 	     -H 'sec-fetch-site: same-site' \
 	     -H 'user-agent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36' \
 		--data-raw '{"jsonrpc":"2.0","method": "LMT_handle_jobs","params":{"jobs":[{"kind":"default","sentences":[{"text":"'"$REPLY"'","id":1,"prefix":""}],"raw_en_context_before":[],"raw_en_context_after":[],"preferred_num_beams":'$VAR'}],"lang":{"target_lang":"'$TRG_LANG'","preference":{"weight":{},"default":"default"},"source_lang_computed":"'$SRC_LANG'"},"priority":1,"commonJobParams":{"mode":"translate","textType":"plaintext","browserType":1},"timestamp":'$TS'},"id":'$ID'}' \
-		--compressed
+		--compressed \
 	| jq -r '
 		if .result then
 			.result.translations[].beams[].sentences[].text
