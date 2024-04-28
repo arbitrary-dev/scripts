@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# † In God We Trust †
+# In God We Trust †
 #
 # A.D. MMXXIV
 
@@ -20,35 +20,29 @@ SRC_LANG=$1
 TRG_LANG=$2
 VAR=${3:-1}
 
-last_id="${TMPDIR:-/tmp}/.deepl-last-id"
-if [ -f "$last_id" ]; then
-	ID=`cat "$last_id"`
-	ID=$(($ID + 1))
-else
-	ID=$((`shuf -i1-9999 -n1` * 10000))
-fi
+ID=$((`shuf -i1-9999 -n1` * 10000))
 
 while read REPLY; do
 	REPLY=`echo "$REPLY" | sed 's/"/\\\"/g'`
 	TS=`date +%s`$(printf '%03d' `shuf -i1-999 -n1`)
 
 	curl -s 'https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs' \
-	     -H 'authority: www2.deepl.com' \
-	     -H 'accept: */*' \
-	     -H 'accept-language: en-US,en;q=0.9' \
-	     -H 'content-type: application/json' \
-	     -H 'cookie: INGRESSCOOKIE=4dc9b4fb678d81dbff43c9ef6bff2c7b|a6d4ac311669391fc997a6a267dc91c0; userCountry=LV; releaseGroups=7866.WDW-413.2.2_8154.AAEXP-6719.1.1_8162.AAEXP-6727.1.1_1483.DM-821.2.2_3586.DF-3635.2.6_5914.DWFA-683.2.2_2656.DM-1177.2.2_5707.TACO-104.2.2_8169.AAEXP-6734.1.1_220.DF-1925.1.9_2055.DM-814.2.3_2274.DM-952.2.2_8143.AAEXP-6708.1.1_8145.AAEXP-6710.1.1_8149.AAEXP-6714.1.1_3589.WDW-326.2.3_5870.WDW-400.2.2_7291.WDW-459.2.2_6781.ACL-720.2.1_8164.AAEXP-6729.1.1_8166.AAEXP-6731.1.1_2399.WDW-164.2.3_4321.B2B-679.2.2_8157.AAEXP-6722.1.1_8158.AAEXP-6723.1.1_8171.AAEXP-6736.1.1_863.DM-601.2.2_1119.B2B-251.2.4_1585.DM-900.2.3_5562.DWFA-732.2.2_6359.DM-1411.2.10_6403.TC-996.2.4_8163.AAEXP-6728.1.1_8165.AAEXP-6730.1.1_976.DM-667.2.3_1780.DM-872.2.2_4831.WDW-341.2.2_8167.AAEXP-6732.1.1_8150.AAEXP-6715.2.1_3127.DM-1032.2.2_8142.AAEXP-6707.1.1_8144.AAEXP-6709.1.1_8252.DWFA-609.2.1_3283.DWFA-661.2.2_5719.DWFA-761.2.2_8160.AAEXP-6725.1.1_7290.WDW-460.2.2_8155.AAEXP-6720.1.1_2962.DF-3552.2.6_4298.ACL-538.2.1_6728.TC-1115.2.2_7617.DWFA-774.1.1_8041.DM-1581.2.2_8148.AAEXP-6713.2.1_8170.AAEXP-6735.1.1_2345.DM-1001.2.2_3587.DWFA-653.2.2_6402.DWFA-716.2.2_4121.WDW-356.2.5_4478.SI-606.2.3_7106.DWFA-790.2.2_7759.DWFA-814.2.2_7794.B2B-950.2.4_1583.DM-807.2.5_2373.DM-1113.2.4_2413.DWFA-524.2.4_6727.B2B-777.2.2_7616.DWFA-777.2.2_8153.AAEXP-6718.1.1_1571.DM-791.2.4_1577.DM-594.2.3_2974.DWFA-587.2.3_3613.WDW-267.2.2_8152.AAEXP-6717.1.1_8168.AAEXP-6733.1.1_975.DM-609.2.3_1997.DM-941.2.3_2464.DM-1175.2.2_8147.AAEXP-6712.1.1_8156.AAEXP-6721.1.1_8159.AAEXP-6724.2.1_2455.DPAY-2828.2.2_4650.AP-312.2.8_5560.DWFA-638.2.2_7758.B2B-949.2.3_8146.AAEXP-6711.1.1_2356.B2B-515.2.2_4322.DWFA-689.2.2_4473.DWFA-667.2.3_8151.AAEXP-6716.1.1_8161.AAEXP-6726.1.1_866.DM-592.2.2_3961.B2B-663.2.3_4854.DM-1255.2.5; dapUid=bc5b3f79-f660-4529-a36e-e248b15db8b5; LMTBID=v2|4fc8ea32-821e-477b-a026-53ff354fbdfd|a43712a3f0e9da6db1a855a2ca9a7675; dapSid=%7B%22sid%22%3A%220e1bcb51-c178-4683-9c1d-e1f94f51c403%22%2C%22lastUpdate%22%3A1712577271%7D' \
-	     -H 'dnt: 1' \
-	     -H 'origin: https://www.deepl.com' \
-	     -H 'referer: https://www.deepl.com/' \
-	     -H 'sec-ch-ua: "Not_A Brand";v="8", "Chromium";v="120"' \
-	     -H 'sec-ch-ua-mobile: ?1' \
-	     -H 'sec-ch-ua-platform: "Android"' \
-	     -H 'sec-fetch-dest: empty' \
-	     -H 'sec-fetch-mode: cors' \
-	     -H 'sec-fetch-site: same-site' \
-	     -H 'user-agent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36' \
-		--data-raw '{"jsonrpc":"2.0","method": "LMT_handle_jobs","params":{"jobs":[{"kind":"default","sentences":[{"text":"'"$REPLY"'","id":1,"prefix":""}],"raw_en_context_before":[],"raw_en_context_after":[],"preferred_num_beams":'$VAR'}],"lang":{"target_lang":"'$TRG_LANG'","preference":{"weight":{},"default":"default"},"source_lang_computed":"'$SRC_LANG'"},"priority":1,"commonJobParams":{"mode":"translate","textType":"plaintext","browserType":1},"timestamp":'$TS'},"id":'$ID'}' \
+		-H 'authority: www2.deepl.com' \
+		-H 'accept: */*' \
+		-H 'accept-language: en-US,en;q=0.9' \
+		-H 'content-type: application/json' \
+		-H 'cookie: INGRESSCOOKIE=40113e0dee4b96a841229ea7fdb90a3d|a6d4ac311669391fc997a6a267dc91c0; userCountry=LV; dapUid=7a4606c8-30cc-4cee-b72b-2237f4d79494; LMTBID=v2|f5f5dc8e-102c-4388-a21d-826ec841d51a|8a4939eeb193d02099407b235385c633; dapSid=%7B%22sid%22%3A%22dfab2cbd-5a63-433b-a4bc-c222bb8bd3e2%22%2C%22lastUpdate%22%3A1714244541%7D' \
+		-H 'dnt: 1' \
+		-H 'origin: https://www.deepl.com' \
+		-H 'referer: https://www.deepl.com/' \
+		-H 'sec-ch-ua: "Not_A Brand";v="8", "Chromium";v="120"' \
+		-H 'sec-ch-ua-mobile: ?1' \
+		-H 'sec-ch-ua-platform: "Android"' \
+		-H 'sec-fetch-dest: empty' \
+		-H 'sec-fetch-mode: cors' \
+		-H 'sec-fetch-site: same-site' \
+		-H 'user-agent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36' \
+		--data-raw '{"jsonrpc":"2.0","method": "LMT_handle_jobs","params":{"jobs":[{"kind":"default","sentences":[{"text":"'"$REPLY"'","id":1,"prefix":""}],"raw_en_context_before":[],"raw_en_context_after":[],"preferred_num_beams":'$VAR'}],"lang":{"target_lang":"'$TRG_LANG'","preference":{"weight":{},"default":"default"},"source_lang_user_selected":"'$SRC_LANG'"},"priority":-1,"commonJobParams":{"mode":"translate","textType":"plaintext","browserType":1},"timestamp":'$TS'},"id":'$ID'}' \
 		--compressed \
 	| jq -r '
 		if .result then
@@ -61,6 +55,5 @@ while read REPLY; do
 	'
 	echo
 
-	echo $ID > "$last_id"
 	ID=$(($ID + 1))
 done
