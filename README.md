@@ -113,7 +113,7 @@ Utility to use Samba sharing instance.
 Ask <b2b@gismeteo.ru> for a token to access
 [gismeteo.ru](https://gismeteo.ru) API.
 
-### weather-latvia
+### weather-latvia [➛](weather-latvia)
 
 [Latvian weather](https://videscentrs.lvgmc.lv/karte) sans map.
 
