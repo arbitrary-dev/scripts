@@ -1,0 +1,73 @@
+#!/bin/zsh -i
+
+# In God We Trust †
+#
+# A.D. MMXXIV
+
+ID="P28"
+NAME="Rīga, Rīgas pilsēta"
+
+if [[ -n "$1" ]]; then
+	R=("${(@f)$(
+		curl --get --data-urlencode "q=$1" -s https://videscentrs.lvgmc.lv/data/search \
+		| jq -r 'map(select(.kategorija == "Prognozes"))|.[]|{id: .loc_params|fromjson|.punkts,name: .nosaukums}|@text "\(.id)\t\(.name)"'
+	)}")
+	if (( $#R > 1 )); then
+		for l in "${R[@]}"; do echo $l; done
+		echo
+		read ans?"Which one? "
+		IFS=$'\t' read ID NAME <<< "${R[(r)$ans	*]}"
+	else
+		IFS=$'\t' read ID NAME <<< "$R"
+	fi
+	if [[ -z "$ID" ]]; then
+		echo "Location not found!"
+		return 1
+	fi
+fi
+
+echo "$NAME"
+
+HOUR_AGO=`date +%Y%m%d%H00 -d '-1 hour'`
+curl -s https://videscentrs.lvgmc.lv/data/weather_forecast_for_location_hourly?punkts=$ID \
+| jq -r '
+	def fmt_temp_with_padding:
+		.temperatura | tonumber | round
+		| (if fabs < 10 then " " else "" end) as $pad
+		| tostring + "°"
+		| if startswith("-") then . else "+" + . end
+		| $pad + .;
+
+	def fmt_wind_with_padding:
+		(.veja_atrums|tonumber|round) as $a
+		| (.brazmas|tonumber|round) as $b
+		| @text "\($a)-\($b) m/s"
+		| if $a < 10 then " " + . else . end
+		| if $b < 10 then " " + . else . end;
+
+	def fmt:
+		{
+			time: .laiks|strptime("%Y%m%d%H%M")|strftime("%H:%M"),
+			temp: fmt_temp_with_padding,
+			rh:   @text "RH \(.relativais_mitrums|tonumber|round)%",
+			wind: fmt_wind_with_padding,
+			uv: (
+				if .uvi_indekss and (.uvi_indekss|tonumber|round) > 0
+				then @text "  UV\(.uvi_indekss|tonumber|round)"
+				else "" end
+			),
+			prec: (
+				if .nokrisni_1h|tonumber > 0
+				then @text "  \(.nokrisni_1h|tonumber*10|round/10) mm"
+				else "" end
+			),
+		}
+		| @text "\(.time)  \(.temp) \(.wind)  \(.rh)\(.uv)\(.prec)";
+
+	map(select(.laiks|tonumber >= '$HOUR_AGO'))
+	| group_by(.laiks|strptime("%Y%m%d%H%M")|strftime("%Y-%m-%d"))[]
+	| {(.[0].laiks|strptime("%Y%m%d%H%M")|strftime("%Y-%m-%d")): [.[] | fmt]}
+	| to_entries[0]
+	| @text "\n\(.key)\n\n\(.value|join("\n"))"
+' \
+| less
