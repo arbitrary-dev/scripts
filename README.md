@@ -110,11 +110,11 @@ Utility to use Samba sharing instance.
 
 ### weather-gismeteo
 
-Ask b2b@gismeteo.ru for a token to access [gismeteo.ru] API.
+Ask b2b@gismeteo.ru for a token to access <gismeteo.ru> API.
 
 ### weather-latvia
 
-[videscentrs.lvgmc.lv/karte]
+<videscentrs.lvgmc.lv/karte>
 
 Dependencies:
 - `app-misc/jq`
