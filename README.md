@@ -108,14 +108,14 @@ Dependencies:
 
 Utility to use Samba sharing instance.
 
-### weather-gismeteo
+### weather-gismeteo [➛](weather-gismeteo)
 
-Ask <b2b@gismeteo.ru> for a token to access
-[gismeteo.ru](https://gismeteo.ru) API.
+Ask <b2b@gismeteo.ru> for a token to access Gismeteo API.
 
 ### weather-latvia [➛](weather-latvia)
 
-[Latvian weather](https://videscentrs.lvgmc.lv/karte) sans map.
+Latvian weather sans map:  
+<https://videscentrs.lvgmc.lv/karte>
 
 Dependencies:
 - `app-misc/jq`
