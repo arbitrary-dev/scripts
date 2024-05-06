@@ -18,7 +18,7 @@ Dependencies:
 
 ### deepl
 
-CLI for DeepL translator.
+CLI for [DeepL translator](https://deepl.com/translator).
 
 Uses "Too many requests" API.
 
@@ -110,11 +110,12 @@ Utility to use Samba sharing instance.
 
 ### weather-gismeteo
 
-Ask b2b@gismeteo.ru for a token to access <gismeteo.ru> API.
+Ask <b2b@gismeteo.ru> for a token to access
+[gismeteo.ru](https://gismeteo.ru) API.
 
 ### weather-latvia
 
-<videscentrs.lvgmc.lv/karte>
+[Latvian weather](https://videscentrs.lvgmc.lv/karte) sans map.
 
 Dependencies:
 - `app-misc/jq`
