@@ -6,10 +6,11 @@
 
 ID="P28"
 NAME="Rīga, Rīgas pilsēta"
+API="https://videscentrs.lvgmc.lv/data"
 
 if [[ -n "$1" ]]; then
 	R=("${(@f)$(
-		curl --get --data-urlencode "q=$1" -s https://videscentrs.lvgmc.lv/data/search \
+		curl --get --data-urlencode "q=$1" -s $API/search \
 		| jq -r 'map(select(.kategorija == "Prognozes"))|.[]|{id: .loc_params|fromjson|.punkts,name: .nosaukums}|@text "\(.id)\t\(.name)"'
 	)}")
 	if (( $#R > 1 )); then
@@ -29,7 +30,7 @@ fi
 echo "$NAME"
 
 HOUR_AGO=`date +%Y%m%d%H00 -d '-1 hour'`
-curl -s https://videscentrs.lvgmc.lv/data/weather_forecast_for_location_hourly?punkts=$ID \
+curl -s $API/weather_forecast_for_location_hourly?punkts=$ID \
 | jq -r '
 	def fmt_temp_with_padding:
 		.temperatura | tonumber | round
