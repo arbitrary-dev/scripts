@@ -65,7 +65,7 @@ while true; do
 			local shuffle
 			echo "Playlist will be shuffled!"
 			;;
-		lp)
+		l|lp)
 			local loop
 			echo "Loop enabled."
 			;;
