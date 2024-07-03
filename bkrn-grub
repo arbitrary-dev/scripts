@@ -1,5 +1,11 @@
 #!/bin/zsh
 
+# In God We Trust †
+#
+# A.D. MMXXIV
+
+set -e
+
 # Disables "no matches found" error
 setopt +o nomatch
 
@@ -23,7 +29,7 @@ _restore_boot() {
   done
 }
 
-bkrn() {
+_bkrn() {
   local src=/usr/src/linux
   local name=`stat $src | head -1 | cut -d\  -f6`
 
@@ -39,8 +45,9 @@ bkrn() {
   mkdir -p $bdir
 
   if [[ ! -f $bdir/.config && -f $cfg ]]; then
-    echo "Copying $cfg to $bdir ..."
+    echo "Moving $cfg to $bdir ..."
     mv $cfg $bdir &> /dev/null
+    echo
   fi
   cfg=$bdir/${cfg##*/}
 
@@ -75,7 +82,7 @@ bkrn() {
   local clean_path="${${PATH//\/usr\/lib\/distcc\/bin:/}//\/usr\/lib\/ccache\/bin:/}"
   if [[ -f $cfg ]]; then
     echo "Update previous ${cfg##*/}"
-    PATH=$clean_path make O=$bdir oldconfig || exit 1
+    PATH=$clean_path make O=$bdir oldconfig
   fi
 
   # make menuconfig
@@ -86,19 +93,19 @@ bkrn() {
   fi
   echo
 
-  PATH=$clean_path make O=$bdir modules_prepare || exit 1
+  PATH=$clean_path make O=$bdir modules_prepare
 
   # make
 
   echo
   if [[ -f $cfg ]]; then
-    case `read -ek ?"Build kernel ([y], distcc-[p]ump or [c]cached)? "` in
-      y) echo; time make O=$bdir -j4 || exit 1;;
-      p) echo; time pump make O=$bdir -j21 -l4 || exit 1;;
+    case `read -ek ?"Build kernel ([y], [d]istcc or [c]cached)? "` in
+      y) echo; time make O=$bdir -j4 ;;
+      d) echo; time make O=$bdir -j21 -l4 CC=distcc ;;
       c) echo
          ccache -p | grep cache_dir\ =
          [[ $PATH != *ccache* ]] && export PATH="/usr/lib/ccache/bin:${PATH}"
-         time make O=$bdir -j4 || exit 1;;
+         time make O=$bdir -j4 ;;
       ?) echo -n "\nSkipped.\n"
     esac
     echo
@@ -106,13 +113,13 @@ bkrn() {
 
   if read -q ?"Rebuild modules? "; then
     echo
-    emerge -q @module-rebuild || exit 1
+    emerge -q @module-rebuild
   fi
   echo
 
-  make O=$bdir modules_install || exit 1
+  make O=$bdir modules_install
 
-  mount /boot &> /dev/null || exit 1
+  mount /boot &> /dev/null
 
   local old=/boot/old
   mkdir -p $old
@@ -188,4 +195,4 @@ bkrn() {
   popd
 }
 
-bkrn
+_bkrn
