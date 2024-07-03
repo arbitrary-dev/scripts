@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# In God We Trust †
+#
+# A.D. MMXXIV
+
+h=$(( `tput lines` - 4 ))
+
+IFS=$'\n' logs=($(
+  ls -d /var/tmp/portage/*/$1* \
+        /home/.portage-tmpdir/portage/*/$1* 2>/dev/null
+))
+
+if (( ! ${#logs[@]} || ${#logs[@]} > 1 )); then
+  for l in "${logs[@]}"; do >&2 echo "$l"; done
+  exit 1
+fi
+
+LOG="${logs[0]}/temp/build.log"
+echo "$LOG"
+
+W=`tput cols`
+
+tail -fn$h "$LOG" \
+| sed -E -e "/^make\\b|^distcc.+ Warning: |^$/d" \
+         -e "/llvm-tblgen/s!(^\[[^]]+]) .* -o [^ ]+/([^/ ]+).*!\1 llvm-tblgen -o \2 ...!" \
+         -e "/cc|g\+\+/!s/^(\[.{$((($W-5)/2-1))}).{5}.+(.{$((($W-5)/2))})$/\1 ... \2/"\
+         -e "/cc|g\+\+/s/^ *\"?i686-pc-linux-gnu-([^ ]+)\"?.+-o \"?([^ \"]+).*/\1 -o \2 .../;
+                 s!^ *\"?(\[[^]]+]|[^ \"]+)\"? .*(gcc|g\+\+).+-o ([^ ]+).*!\1 \2 -o \3 ...!;
+                 s!^/[^ ]+/([^/ ]+) !\1 !" \
+         -e "s!${LOG%%/temp/*}(/work(/build|/$1[^/]+|)|)!..!g" \
+         -e 's/\.\.\. \.\./../'

@@ -1,0 +1,69 @@
+#!/bin/sh
+
+# In God We Trust †
+#
+# A.D. MMXXIV
+
+args=
+
+while (( $# )); do
+case "$1" in
+
+--distcc)
+  # ccache requires additional anal tricks...
+  # https://wiki.gentoo.org/wiki/Distcc#With_ccache
+  export FEATURES+=" distcc -ccache"
+
+  # Bonnell causes issues when cross-compiling
+  if grep -q '^CFLAGS.*-march=bonnell' /etc/portage/make.conf; then
+    source /etc/portage/make.conf
+    export CFLAGS=`sed s/bonnell/i686/ <<< $CFLAGS`
+    echo "export CFLAGS=... -march=bonnell → -march=i686"
+  fi
+
+  if [[ "$2" =~ ^[0-9]+$ ]]; then
+    N=$2
+    M=`nproc`
+
+    if [ -z "$N" ] || (( $N < $M )); then
+      echo "Specified amount of remote jobs is less than $M"
+      exit 1
+    fi
+
+    export MAKEOPTS+=" -j$N -l$M"
+
+    shift
+  else
+    echo "Distcc will be used, yet jobs count were not specified."
+    echo "MAKEOPTS values defined in make.conf will be used."
+  fi
+
+  ;;
+
+--resume|-r)
+  export FEATURES+=" keepwork"
+  ;;
+
+-*/*)
+  args+=" --exclude ${1#-}"
+  ;;
+
+*)
+  break
+  ;;
+
+esac
+shift
+done
+
+[ -n "$MAKEOPTS" ] && echo "export MAKEOPTS=\"$MAKEOPTS\""
+
+if (( $# )); then
+  if [[ "$1" = -* ]]; then
+    emerge "$@" $args
+  else
+    emerge -av --quiet-build "$@" $args
+  fi
+else
+  emerge -avuUD --quiet-build --keep-going @world $args
+fi

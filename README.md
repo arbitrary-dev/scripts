@@ -39,6 +39,10 @@ Dependencies:
 - `sys-fs/udev`
 - `sys-apps/hdparm`
 
+### emerge-\*
+
+Utilities for `emerge`.
+
 ### expenses
 
 Poor fellow's calculator.
