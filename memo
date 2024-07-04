@@ -33,7 +33,7 @@ _copy() {
   echo
   [ "$ans" = n ] && return 0
   command -v xc &>/dev/null || return 1
-  printf "$1" | xc && echo "Copied!"
+  printf "${1:gs/%/%%}" | xc && echo "Copied!"
 }
 
 show() {
@@ -42,7 +42,7 @@ show() {
   if (( $c > 1 )); then
     echo "$list"
   elif [[ -n "$list" ]]; then
-    local res=`echo $list | cut -d' ' -f2- | sed s/%/%%/g`
+    local res=`echo $list | cut -d' ' -f2-`
     echo "$res"
     _copy "$res"
   else
