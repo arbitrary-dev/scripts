@@ -39,11 +39,12 @@ _mus_find() {
 		for f in $fs; do >&2 echo ${f#"$dir"/}; done
 
 		>&2 echo
-		>&2 read REPLY?"Which one? "
+		>&2 read REPLY?"Which one? [s"
+		[ -z "$REPLY" ] && >&2 echo "[uall"
 		>&2 echo
 
 		case "$REPLY" in
-			all) break ;;
+			all|) break ;;
 			q) return ;;
 			*) fs=(${(M)fs:#*$REPLY*}) ;;
 		esac
