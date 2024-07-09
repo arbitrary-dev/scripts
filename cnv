@@ -254,6 +254,28 @@ EOF
   rm -f $ERR
 }
 
+vol() {
+	local args=(-filter:a volumedetect -f null /dev/null)
+	if [ -n "$2" ]; then
+		if [ "$1" = "norm" ]; then
+			local target="I=-16:TP=-1.5:LRA=11"
+			local measured=$(
+				ffmpeg -hide_banner -i "$2" -filter:a loudnorm=$target:print_format=json -f null - 2>&1 \
+				| sed -n '/{/,$p' \
+				| jq -r '@text "measured_I=\(.input_i):measured_LRA=\(.input_lra):measured_TP=\(.input_tp):measured_thresh=\(.input_thresh):offset=\(.target_offset)"'
+			)
+			echo $measured
+			echo
+			args=(-filter:a loudnorm=$target:$measured "${2%.*}-norm.${2##*.}")
+		else
+			args=(-filter:a volume=$1 "${2%.*}-vol$1.${2##*.}")
+		fi
+		shift
+	fi
+
+	ffmpeg -hide_banner -i "$1" "${args[@]}"
+}
+
 _video() {
   local BR_V=$(ffprobe -print_format csv=p=0 -v quiet -show_entries stream=bit_rate -select_streams v "$1")
   if (( $? )); then
@@ -773,7 +795,7 @@ EOF
 if (( ! $# )); then
   cat <<EOF
 Universal media convertor
-$(_usage) <ao|audio|concat|covers|cut|gif|videos|photos|film|webm>
+$(_usage) <ao|audio|concat|covers|cut|gif|videos|vol|photos|film|webm>
 EOF
 else
   CMD="$1"
