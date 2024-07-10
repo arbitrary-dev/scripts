@@ -4,6 +4,8 @@
 #
 # A.D. MMXXIV
 
+setopt EXTENDED_GLOB
+
 _ffind() {
 	find "$@" -type f -exec sh -c '
 		for f; do
@@ -46,7 +48,7 @@ _mus_find() {
 		case "$REPLY" in
 			all|) break ;;
 			q) return ;;
-			*) fs=(${(M)fs:#*$REPLY*}) ;;
+			*) fs=(${(M)fs:#*(#l)$REPLY*}) ;;
 		esac
 	done
 
