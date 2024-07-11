@@ -116,6 +116,6 @@ if [[ -v list ]]; then
 		fi
 	done
 else
-	[ $#files = 1 ] && echo "$files"
+	[ $#files = 1 ] && echo "${files/~/~}"
 	mpv ${shuffle+--shuffle} ${loop+--loop-playlist} "${files[@]}"
 fi
