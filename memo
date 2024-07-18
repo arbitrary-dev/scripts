@@ -38,12 +38,12 @@ _copy() {
 
 show() {
   local list="$1"
-  local c=`echo "$list" | wc -l`
+  local c=`echo -E "$list" | wc -l`
   if (( $c > 1 )); then
     echo "$list"
   elif [[ -n "$list" ]]; then
-    local res=`echo $list | cut -d' ' -f2-`
-    echo "$res"
+    local res=`echo -E "$list" | cut -d' ' -f2-`
+    echo -e "$res"
     _copy "$res"
   else
     echo "No entries!"
