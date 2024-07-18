@@ -273,7 +273,7 @@ vol() {
 		shift
 	fi
 
-	ffmpeg -hide_banner -i "$1" "${args[@]}"
+	ffmpeg -hide_banner -i "$1" -c:v copy "${args[@]}"
 }
 
 _video() {
