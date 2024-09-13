@@ -86,14 +86,19 @@ while true; do
 			local list
 			;;
 		ly)
-			fs=(${(@f)"$(find "$dir"/_lyrics -type f -iname "*$2*.txt")"})
+			fs=(${(@fo)"$(find "$dir"/_lyrics -type f -iname "*$2*.txt")"})
+			[ -z "$2" ] && echo "${dir/~/~}/_lyrics/"
 			for f in $fs; do
-				echo
-				basename ${f%.txt}
-				basename ${f%.txt} | sed s/./=/g
-				echo
-				column -L $f
-				echo
+				if [ -z "$2" ]; then
+					basename ${f%.txt}
+				else
+					echo
+					basename ${f%.txt}
+					basename ${f%.txt} | sed s/./=/g
+					echo
+					column -L $f
+					echo
+				fi
 			done
 			return 0
 			;;
