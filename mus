@@ -38,7 +38,11 @@ _mus_find() {
 	(( ! $#fs )) && fs=(${(@f)"$(_ffind "$dir"/ -${cs-i}path "*$1*")"})
 
 	while (( $#fs > 1 )) && [[ ! -v list ]]; do
-		for f in $fs; do >&2 echo ${f#"$dir"/}; done
+		local i=1
+		for f in $fs; do
+			>&2 echo $i. ${f#"$dir"/}
+			i=$((i + 1))
+		done
 
 		>&2 echo
 		>&2 read REPLY?"Which one? [s"
@@ -48,7 +52,13 @@ _mus_find() {
 		case "$REPLY" in
 			all|) break ;;
 			q) return ;;
-			*) fs=(${(M)fs:#*(#l)$REPLY*}) ;;
+			*)	# The pattern <-> is zsh-ism which matches any string
+				# having any number of digits and only digits.
+				if [[ "$REPLY" = <-> ]]; then
+					fs=("${fs[$REPLY]}")
+				else
+					fs=(${(M)fs:#*(#l)$REPLY*})
+				fi ;;
 		esac
 	done
 
