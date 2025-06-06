@@ -65,20 +65,27 @@ EOF
     return 1
   fi
 
-  export flags="-c:a libfdk_aac -ac 2 -ar 44100 -vbr 4"
-
   while (( $# )); do
     if [[ "$1" =~ ^--vbr=[1-5]$ ]]; then
-      export flags="-c:a libfdk_aac -ac 2 -ar 44100 -vbr ${1#*=}"
-    elif [[ "$1" = "--alow" ]]; then
-      export flags="-c:a libfdk_aac -ar 16000 -profile:a aac_he -vbr 1 -ac 1"
+      export flags+=" -c:a libfdk_aac -ac 2 -ar 44100 -vbr ${1#*=}"
+    elif [[ "$1" = "-alow" ]]; then
+      export flags+=" -c:a libfdk_aac -ar 24k -profile:a aac_he_v2 -b:a 8k"
+    elif [[ "$1" = "-anorm" ]]; then
+	  export flags+=" -af dynaudnorm=f=75:g=25:n=0:p=0.58"
     elif [[ "$1" =~ ^(-k|--keep)$ ]]; then
       export keep=1
+    elif [[ "$1" =~ ^- ]]; then
+		>&2 echo "Invalid option: $1"
+		return 1
     elif [[ $(_mimetype "$1") =~ ^(audio|video) || "$1" = *.m4a ]]; then
       LIST+="\n$1"
     fi
     shift
   done
+
+  if [[ "$flags" != *-c:a* ]]; then
+	  export flags+="-c:a libfdk_aac -ac 2 -ar 44100 -vbr 4"
+  fi
 
   export -f _audio_1
   printf "$LIST" | parallel --will-cite _audio_1
@@ -368,11 +375,11 @@ EOF
   [[ ! "$3" =~ end|finish ]] && finish="-t $3"
 
   local ext_in="${1##*.}"
-  local ext_out="${4##*.}"
   local out="${4:-${1%.*}-cut.${ext_in}}"
+  local ext_out="${out##*.}"
 
   local is_copy
-  #[[ "$ext_in" == "$ext_out" ]] && is_copy="-c copy"
+  [[ "$ext_in" == "$ext_out" ]] && is_copy="-c copy"
 
   ffmpeg -i "$1" $start $finish $is_copy "$out"
 }
@@ -450,6 +457,7 @@ EOF
     shift ;;
   -crf)
     BV="-crf $2"
+	# CRF/CQP is incompatible with 2pass
     p2only=
     shift ;;
   -anorm|--audio-normalize)
@@ -551,8 +559,8 @@ EOF
   local pass1="ffmpeg $ARGS -pass 1 -an -f null /dev/null"
   local pass2="ffmpeg $ARGS $p2only \"$out\""
 
-  [ ! ${p2only+y} ] && eval "$pass1" || :
-  (( ! $?        )) && eval "$pass2"
+  [ ! ${p2only+y}  ] && eval "$pass1" || :
+  (( ! $?         )) && eval "$pass2"
 
   [ -z "$NOLOG" ] && (( ! $? )) && _log "> $out"
 }
