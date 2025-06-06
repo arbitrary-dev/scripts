@@ -124,10 +124,14 @@ done
 if [[ -v list ]]; then
 	for f in "${files[@]}"; do
 		if [[ -d "$f" ]]; then
+			[[ -v sep ]] && echo
 			echo "${f#"$dir"/}/"
 			ls "$f"
+			sep=2
 		else
+			[[ "$sep" == 2 ]] && echo
 			echo "${f#"$dir"/}"
+			sep=1
 		fi
 	done
 else
