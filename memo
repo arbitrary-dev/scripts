@@ -1,113 +1,117 @@
 #!/bin/zsh -i
 
+# In God We Trust †
+#
+# A.D. MMXXV
+
 # Note: -i is for interactive terminal, to make `xc` alias available here.
 
 TMPDIR=${TMPDIR:-/tmp}
 memo=${DOCS:-~/Documents}/memo
 
 check_memo() {
-  if [[ ! -f $memo ]]; then
-    echo "No memo at $memo"
-    exit 1
-  fi
+	if [[ ! -f $memo ]]; then
+		echo "No memo at $memo"
+		exit 1
+	fi
 }
 
 check() {
-  if ! command -v $1 >/dev/null; then
-    echo "No '$1' available!"
-    exit 1
-  fi
+	if ! command -v $1 >/dev/null; then
+		echo "No '$1' available!"
+		exit 1
+	fi
 }
 
 check_tmpdir() {
-  if [ ! -w "$TMPDIR" ]; then
-    echo "No writable TMPDIR!"
-    exit 1
-  fi
+	if [ ! -w "$TMPDIR" ]; then
+		echo "No writable TMPDIR!"
+		exit 1
+	fi
 }
 
 join_by() { local IFS="$1"; shift; echo "$*"; }
 
 _copy() {
-  echo
-  read -q ans?"Copy to clipboard? "
-  _cleanup
-  [ "$ans" = n ] && return 0
-  command -v xc &>/dev/null || return 1
-  printf "${1:gs/%/%%}" | xc && echo "Copied!"
+	echo
+	read -q ans?"Copy to clipboard? "
+	_cleanup
+	[ "$ans" = n ] && return 0
+	command -v xc &>/dev/null || return 1
+	printf "${1:gs/%/%%}" | xc && echo "Copied!"
 }
 
 show() {
-  echo
-  local list="$1"
-  local c=`echo -E "$list" | wc -l`
-  if (( $c > 1 )); then
-    echo "$list"
-  elif [[ -n "$list" ]]; then
-    local res=`echo -E "$list" | cut -d' ' -f2-`
-    echo -e "$res"
-    _copy "$res"
-  else
-    echo "No entries!"
-  fi
+	echo
+	local list="$1"
+	local c=`echo -E "$list" | wc -l`
+	if (( $c > 1 )); then
+		echo "$list"
+	elif [[ -n "$list" ]]; then
+		local res=`echo -E "$list" | cut -d' ' -f2-`
+		echo -e "$res"
+		_copy "$res"
+	else
+		echo "No entries!"
+	fi
 }
 
 _cleanup() {
-  printf "\r[K"
+	printf "\r[K"
 }
 
 _memo_get() {
-  check_memo
-  check gpg
+	check_memo
+	check gpg
 
-  if (( ! $# )); then
-    local list=(`gpg -qd $memo | cut -d' ' -f1`)
-    echo
-    echo ${list[@]}
-  elif (( $# == 1 )); then
-    local list="`gpg -qd $memo | grep -iE ^$1`"
-    show "$list"
-  else
-    local q=`join_by \| $*`
-    local list="`gpg -qd $memo | grep -iE ^$q`"
-    show "$list"
-  fi
+	if (( ! $# )); then
+		local list=(`gpg -qd $memo | cut -d' ' -f1`)
+		echo
+		echo ${list[@]}
+	elif (( $# == 1 )); then
+		local list="`gpg -qd $memo | grep -iE ^$1`"
+		show "$list"
+	else
+		local q=`join_by \| $*`
+		local list="`gpg -qd $memo | grep -iE ^$q`"
+		show "$list"
+	fi
 }
 
 _memo_edit() {
-  check_memo
-  check_tmpdir
-  check shred
+	check_memo
+	check_tmpdir
+	check shred
 
-  local temp=$(
-    cd $TMPDIR
-    local f=`mktemp .memo_XXXX`
-    echo $TMPDIR/$f
-  )
+	local temp=$(
+		cd $TMPDIR
+		local f=`mktemp .memo_XXXX`
+		echo $TMPDIR/$f
+	)
 
-  local pass
-  read -s pass?"GPG password: "
-  echo
+	local pass
+	read -s pass?"GPG password: "
+	echo
 
-  gpg --batch --passphrase $pass -o $temp --yes -qd $memo
-  if (( $? )); then
-    shred -u $temp
-    return 1
-  fi
-  vim $temp
-  if (( $? )); then
-    shred -u $temp
-    echo Update cancelled.
-    return 1
-  fi
-  gpg --batch --passphrase $pass -o $memo --yes -qc $temp
-  local r=$?
-  shred -u $temp
-  (( ! $r )) && echo Memo updated!
+	gpg --batch --passphrase $pass -o $temp --yes -qd $memo
+	if (( $? )); then
+		shred -u $temp
+		return 1
+	fi
+	vim $temp
+	if (( $? )); then
+		shred -u $temp
+		echo Update cancelled.
+		return 1
+	fi
+	gpg --batch --passphrase $pass -o $memo --yes -qc $temp
+	local r=$?
+	shred -u $temp
+	(( ! $r )) && echo Memo updated!
 }
 
 case "$1" in
-  --help|-h) echo "Usage: ${0##*/} --edit|-e | --help|-h | keys..." ;;
-  --edit|-e) _memo_edit ;;
-  *)         _memo_get "$@" ;;
+	--help|-h) echo "Usage: ${0##*/} --edit|-e | --help|-h | keys..." ;;
+	--edit|-e) _memo_edit ;;
+	*)         _memo_get "$@" ;;
 esac
