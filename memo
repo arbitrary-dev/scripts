@@ -29,14 +29,16 @@ check_tmpdir() {
 join_by() { local IFS="$1"; shift; echo "$*"; }
 
 _copy() {
-  read -q ans?"Copy to clipboard? "
   echo
+  read -q ans?"Copy to clipboard? "
+  _cleanup
   [ "$ans" = n ] && return 0
   command -v xc &>/dev/null || return 1
   printf "${1:gs/%/%%}" | xc && echo "Copied!"
 }
 
 show() {
+  echo
   local list="$1"
   local c=`echo -E "$list" | wc -l`
   if (( $c > 1 )); then
@@ -50,12 +52,17 @@ show() {
   fi
 }
 
+_cleanup() {
+  printf "\r[K"
+}
+
 _memo_get() {
   check_memo
   check gpg
 
   if (( ! $# )); then
     local list=(`gpg -qd $memo | cut -d' ' -f1`)
+    echo
     echo ${list[@]}
   elif (( $# == 1 )); then
     local list="`gpg -qd $memo | grep -iE ^$1`"
