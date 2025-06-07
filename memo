@@ -3,7 +3,7 @@
 # Note: -i is for interactive terminal, to make `xc` alias available here.
 
 TMPDIR=${TMPDIR:-/tmp}
-memo=${MY_DOCS:-~/docs}/_misc/memo
+memo=${DOCS:-~/Documents}/memo
 
 check_memo() {
   if [[ ! -f $memo ]]; then
