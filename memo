@@ -35,10 +35,6 @@ join_by() { local IFS="$1"; shift; echo "$*"; }
 _copy() {
 	echo
 	read -q ans?"Copy to clipboard? "
-	if [ "$ans" = n ]; then
-		_cleanup 1
-		return 0
-	fi
 	_cleanup
 	[ "$ans" = n ] && return 0
 	command -v xc &>/dev/null || return 1
@@ -46,6 +42,7 @@ _copy() {
 }
 
 show() {
+	echo
 	local list="$1"
 	local c=`echo -E "$list" | wc -l`
 	if (( $c > 1 )); then
