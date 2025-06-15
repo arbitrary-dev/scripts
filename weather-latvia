@@ -1,8 +1,8 @@
-#!/bin/zsh -i
+#!/bin/zsh
 
 # In God We Trust †
 #
-# A.D. MMXXIV
+# A.D. MMXXV
 
 ID="P269"
 NAME="Rīga, Rīgas pilsēta"
@@ -30,7 +30,7 @@ fi
 echo "$NAME"
 
 HOUR_AGO=`date +%Y%m%d%H00 -d '-1 hour'`
-curl -s $API/weather_forecast_for_location_hourly?punkts=$ID \
+curl -s "$API/weather_forecast_for_location_hourly?punkts=$ID" \
 | jq -r '
 	def fmt_temp_with_padding:
 		.temperatura | tonumber | round

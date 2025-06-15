@@ -1,10 +1,8 @@
-#!/bin/zsh -i
+#!/bin/zsh
 
 # In God We Trust †
 #
 # A.D. MMXXV
-
-# Note: -i is for interactive terminal, to make `xc` alias available here.
 
 TMPDIR=${TMPDIR:-/tmp}
 memo=${DOCS:-~/Documents}/memo
@@ -34,11 +32,17 @@ join_by() { local IFS="$1"; shift; echo "$*"; }
 
 _copy() {
 	echo
-	read -q ans?"Copy to clipboard? "
+	read -q ans\?"Copy to clipboard? "
 	_cleanup
 	[ "$ans" = n ] && return 0
-	command -v xc &>/dev/null || return 1
-	printf "${1:gs/%/%%}" | xc && echo "Copied!"
+	printf "${1:gs/%/%%}" | (
+		wl-copy                        &>/dev/null \
+		|| termux-clipboard-set        &>/dev/null \
+		|| xclip -selection clipboard  &>/dev/null \
+		|| pbcopy                      &>/dev/null \
+		|| exit 1
+	) && echo "Copied!" \
+	  || return 1
 }
 
 show() {
@@ -105,7 +109,7 @@ _memo_edit() {
 	)
 
 	local pass
-	read -s pass?"GPG password: "
+	read -s pass\?"GPG password: "
 	echo
 
 	gpg --batch --passphrase $pass -o $temp --yes -qd $memo
