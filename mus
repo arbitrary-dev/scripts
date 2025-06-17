@@ -7,13 +7,13 @@
 setopt EXTENDED_GLOB
 
 _ffind() {
-	find "$@" -type f -exec sh -c '
-		for f; do
-			file --brief --mime-type "$f" \
-				| grep -qE "^(audio|video)/" \
-			&& echo "$f"
-		done
-	' -- {} +
+	find "$@" -type f -and \(  \
+		-iname     "*.mp3"     \
+		-or -iname "*.m4a"     \
+		-or -iname "*.flac"    \
+		-or -iname "*.webm"    \
+		-or -iname "*.mkv"     \
+	\)
 }
 
 _mus_find() {
