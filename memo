@@ -52,7 +52,7 @@ show() {
 	if (( $c > 1 )); then
 		echo "$list"
 	elif [[ -n "$list" ]]; then
-		local res=`echo -E "$list" | cut -d' ' -f2-`
+		local res=`echo -E "$list" | sed -E 's/^\S+\s+//'`
 		echo -e "$res"
 		_copy "$res"
 	else
