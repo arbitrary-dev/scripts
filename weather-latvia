@@ -16,7 +16,7 @@ if [[ -n "$1" ]]; then
 	if (( $#R > 1 )); then
 		for l in "${R[@]}"; do echo $l; done
 		echo
-		read ans?"Which one? "
+		read ans\?"Which one? "
 		IFS=$'\t' read ID NAME <<< "${R[(r)$ans	*]}"
 	else
 		IFS=$'\t' read ID NAME <<< "$R"
@@ -65,9 +65,23 @@ curl -s "$API/weather_forecast_for_location_hourly?punkts=$ID" \
 		}
 		| @text "\(.time)  \(.temp) \(.wind)  \(.rh)\(.uv)\(.prec)";
 
+	def fmt_date:
+		strptime("%Y%m%d%H%M")
+		| strftime("%w") as $weekday
+		| strftime("%Y-%m-%d --- ")
+		| . + {
+			"0": "SVĒTDIENA",
+			"1": "Pirmdiena",
+			"2": "Otrdiena",
+			"3": "Trešdiena",
+			"4": "Ceturtdiena",
+			"5": "Piektdiena",
+			"6": "Sestdiena"
+		}[$weekday];
+
 	map(select(.laiks|tonumber >= '$HOUR_AGO'))
-	| group_by(.laiks|strptime("%Y%m%d%H%M")|strftime("%Y-%m-%d"))[]
-	| {(.[0].laiks|strptime("%Y%m%d%H%M")|strftime("%Y-%m-%d")): [.[] | fmt]}
+	| group_by(.laiks[:8])[]
+	| {(.[0].laiks|fmt_date): [.[] | fmt]}
 	| to_entries[0]
 	| @text "\n\(.key)\n\n\(.value|join("\n"))"
 ' \
