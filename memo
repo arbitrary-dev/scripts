@@ -65,7 +65,7 @@ _cleanup() {
 	printf "\r[K"
 
 	local i=${1:-0}
-	while (( "$i" > 0 )); do
+	while (( $i > 0 )); do
 		printf "[A\r[K"
 		i=$(( $i - 1 ))
 	done
