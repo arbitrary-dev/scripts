@@ -45,6 +45,7 @@ _copy() {
 		wl-copy                        &>/dev/null \
 		|| termux-clipboard-set        &>/dev/null \
 		|| xclip -selection clipboard  &>/dev/null \
+		|| putclip                     &>/dev/null \
 		|| pbcopy                      &>/dev/null \
 		|| exit 1
 	) && echo "\r[KCopied!" \
