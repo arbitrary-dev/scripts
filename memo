@@ -5,7 +5,7 @@
 # A.D. MMXXVI
 
 TMPDIR=${TMPDIR:-/tmp}
-memo=${DOCS:-~/Documents}/memo
+memo=${DOCS:-~/Documents}/_misc/memo
 
 check_memo() {
 	if [[ ! -f $memo ]]; then
