@@ -2,7 +2,7 @@
 
 # In God We Trust †
 #
-# A.D. MMXXV
+# A.D. MMXXVI
 
 TMPDIR=${TMPDIR:-/tmp}
 memo=${DOCS:-~/Documents}/memo
@@ -31,17 +31,23 @@ check_tmpdir() {
 join_by() { local IFS="$1"; shift; echo "$*"; }
 
 _copy() {
+	# Substitution of %'s is for correct handling later by printf
+	local text=(${=@:gs/%/%%})
 	echo
-	read -q ans\?"Copy to clipboard? "
-	_cleanup
-	[ "$ans" = n ] && return 0
-	printf "${1:gs/%/%%}" | (
+	read -k1 ans\?"Copy to clipboard? "
+	if [ "$ans" = n ]; then
+		echo
+		return 0
+	fi
+	[[ "$ans" =~ ^[0-9]+$ ]] && text="${text[$ans]:gs/%/%%}"
+	printf "\r[KCopying... "
+	printf "${text[*]}" | (
 		wl-copy                        &>/dev/null \
 		|| termux-clipboard-set        &>/dev/null \
 		|| xclip -selection clipboard  &>/dev/null \
 		|| pbcopy                      &>/dev/null \
 		|| exit 1
-	) && echo "Copied!" \
+	) && echo "\r[KCopied!" \
 	  || return 1
 }
 
@@ -54,7 +60,7 @@ show() {
 	elif [[ -n "$list" ]]; then
 		local res=`echo -E "$list" | sed -E 's/^\S+\s+//'`
 		echo -e "$res"
-		_copy "$res"
+		_copy $=res
 	else
 		echo "No entries!"
 	fi
