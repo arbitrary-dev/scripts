@@ -1,8 +1,8 @@
 #!/bin/zsh
 
-# In God We Trust †
+# Heil Christus † Gott Heil
 #
-# A.D. MMXXV
+# A.D. MMXXVI
 
 ID="P269"
 NAME="Rīga, Rīgas pilsēta"
@@ -17,7 +17,7 @@ if [[ -n "$1" ]]; then
 		for l in "${R[@]}"; do echo $l; done
 		echo
 		read ans\?"Which one? "
-		IFS=$'\t' read ID NAME <<< "${R[(r)$ans	*]}"
+		IFS=$'\t' read ID NAME <<< "${R[(r)*$ans*	*]}"
 	else
 		IFS=$'\t' read ID NAME <<< "$R"
 	fi
