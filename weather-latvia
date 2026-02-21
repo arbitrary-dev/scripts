@@ -27,8 +27,6 @@ if [[ -n "$1" ]]; then
 	fi
 fi
 
-echo "$NAME"
-
 HOUR_AGO=`date +%Y%m%d%H00 -d '-1 hour'`
 curl -s "$API/weather_forecast_for_location_hourly?punkts=$ID" \
 | jq -r '
@@ -79,10 +77,12 @@ curl -s "$API/weather_forecast_for_location_hourly?punkts=$ID" \
 			"6": "Sestdiena"
 		}[$weekday];
 
-	map(select(.laiks|tonumber >= '$HOUR_AGO'))
-	| group_by(.laiks[:8])[]
-	| {(.[0].laiks|fmt_date): [.[] | fmt]}
-	| to_entries[0]
-	| @text "\n\(.key)\n\n\(.value|join("\n"))"
+	"'$NAME'", (
+		map(select(.laiks|tonumber >= '$HOUR_AGO'))
+		| group_by(.laiks[:8])[]
+		| {(.[0].laiks|fmt_date): [.[] | fmt]}
+		| to_entries[0]
+		| @text "\n\(.key)\n\n\(.value|join("\n"))"
+	)
 ' \
 | less
