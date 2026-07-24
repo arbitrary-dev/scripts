@@ -2,7 +2,11 @@
 
 # In God We Trust †
 #
-# A.D. MMXXV
+# A.D. MMXXVI
+#
+#
+# To use define an alias:
+# alias mus="noglob music"
 
 setopt EXTENDED_GLOB
 
@@ -17,6 +21,15 @@ _ffind() {
 	\)
 }
 
+_all() {
+	find -L "$dir" \
+		\( \
+			-name "БÍБЛЇА" \
+			-o -name "Church" \
+		\) -prune \
+		-o -type d -links 2 -print
+}
+
 _mus_find() {
 	(( `printf "$1" | wc -m` < 3 )) \
 	&& >&2 echo "Try more letters!" \
@@ -29,16 +42,17 @@ _mus_find() {
 	local fs
 	if [[ "$1" != */* ]]; then
 		# Search for directories first
-		fs=(${(@fo)"$(find "$dir"/ -type d -${cs-i}name "*$1*")"})
+		fs=(${(@fo)"$(find -L "$dir" -type d -${cs-i}name "*$1*")"})
 		# ...then file names
 		(( ! $#fs )) && fs=(${(@fo)"$(_ffind "$dir"/ -${cs-i}name "*$1*")"})
 	fi
 	# ...then path names for dirs
-	(( ! $#fs )) && fs=(${(@fo)"$(find "$dir"/ -type d -${cs-i}path "*$1*")"})
+	(( ! $#fs )) && fs=(${(@fo)"$(find -L "$dir" -type d -${cs-i}path "*$1*")"})
+	(( ! $#fs )) && fs=(${(@fo)"$(find -L "$dir" -type d -${cs-i}path "*${1%%/}*")"})
 	# ...then path names for files
-	(( ! $#fs )) && fs=(${(@fo)"$(_ffind "$dir"/ -${cs-i}path "*$1*")"})
+	(( ! $#fs )) && fs=(${(@fo)"$(_ffind -L "$dir" -${cs-i}path "*$1*")"})
 
-	while (( $#fs > 1 )) && [[ ! -v list ]]; do
+	while (( $#fs > 1 )) && [[ "$1" != *\** ]] && [[ ! -v list ]]; do
 		local i=1
 		for f in $fs; do
 			>&2 echo $i. ${f#"$dir"/}
@@ -72,11 +86,12 @@ _mus_find() {
 }
 
 local dir=${MUS:-~/Music}
+local args=()
 
 while true; do
 	case "$1" in
 		s)
-			local shuffle
+			args+=( --shuffle )
 			echo "Playlist will be shuffled!"
 			;;
 		l|lp)
@@ -117,7 +132,11 @@ fi
 
 local files=()
 while (( $# )); do
-	files+=(${(@f)"$(_mus_find "$1")"})
+	if [ "$1" = "*" ]; then
+		files+=(${(@f)"$(_all)"})
+	else
+		files+=(${(@f)"$(_mus_find "${1//./?}")"})
+	fi
 	shift
 done
 (( ! $#files )) && return 1
@@ -136,6 +155,12 @@ if [[ -v list ]]; then
 		fi
 	done
 else
-	[ $#files = 1 ] && echo "${files/~/~}"
-	mpv --title='${chapter-metadata/title:${media-title}}' ${shuffle+--shuffle} ${loop+--loop-playlist} "${files[@]}"
+	if [ $#files = 1 ]; then
+		echo "${files/~/~}"
+		[ -v loop ] && args+=( --loop )
+	elif (( $#files > 1 )) && [ -v loop ]; then
+		args+=( --loop-playlist )
+	fi
+	mpv --title='${chapter-metadata/title:${media-title}}' \
+		${=args[@]} "${files[@]}"
 fi
