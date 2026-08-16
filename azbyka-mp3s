@@ -1,0 +1,7 @@
+#!/bin/sh
+
+XPATH="//*[@data-src]/@data-src"
+
+curl -s "$1" \
+| xmllint --html --xpath "$XPATH" - 2>/dev/null \
+| sed -En 's/.+="(.+\.mp3)"/\1/p'

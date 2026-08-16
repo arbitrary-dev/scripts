@@ -1,0 +1,10 @@
+#!/bin/sh
+
+WEB="https://2ch.org"
+XPATH="//a[@title and (contains(@href, '.webm') or contains(@href, '.mp4'))]"
+
+curl -s "$1" \
+| xmllint --html --xpath "$XPATH" - 2>/dev/null \
+| sed -E -e "1i#EXTM3U" \
+	-e "s!.*href=\"(.+)\" title=\"(.+)\">.*!#EXTINF:-1,\2\n$WEB\1!" \
+| mpv --playlist=-
