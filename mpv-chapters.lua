@@ -5,7 +5,7 @@
 
 	To install:
 	$ mkdir -p ~/.config/mpv/scripts
-	$ ln -s <THIS_FILE> ~/.config/mpv/scripts/mpv-chapters.lua
+	$ ln -s {$PWD,~/.config/mpv/scripts}/mpv-chapters.lua
 
 	Fork link:
 	https://github.com/arbitrary-dev/mpv-scripts
