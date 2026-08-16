@@ -366,7 +366,7 @@ cut() {
   if (( ! $# )); then
     cat <<EOF
 Cuts a media file.
-$(_usage) [options] <input.xxx> [03:06|start] [01:05 (dur)|finish] [input-out.yyy]
+$(_usage) <input.xxx> [03:06|start] [01:05 (dur)|finish] [input-out.yyy]
 EOF
     return 1
   fi

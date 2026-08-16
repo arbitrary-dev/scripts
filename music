@@ -126,7 +126,7 @@ while true; do
 done
 
 if (( ! $# )); then
-	ls "$dir"
+	ls "$dir" | less -F
 	return
 fi
 
@@ -153,7 +153,8 @@ if [[ -v list ]]; then
 			echo "${f#"$dir"/}"
 			sep=1
 		fi
-	done
+	done \
+	| less -F
 else
 	if [ $#files = 1 ]; then
 		echo "${files/~/~}"
